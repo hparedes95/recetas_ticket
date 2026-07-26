@@ -1,0 +1,194 @@
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { MealPlan, Preferences, Product, ShoppingItem } from '../types';
+import { generatePlans as engineGeneratePlans, shoppingListFromPlan } from '../engine/planner';
+import { RECIPE_BY_ID } from '../data/recipes';
+
+const STORAGE_KEY = '@recetas_ticket/state_v1';
+
+const DEFAULT_PREFERENCES: Preferences = {
+  people: 1,
+  defaultGoal: 'saludable',
+  restrictions: [],
+  dislikes: [],
+  mealsPerDay: ['desayuno', 'comida', 'cena'],
+  onboarded: false,
+};
+
+interface PersistedState {
+  preferences: Preferences;
+  pantry: Product[];
+  plans: MealPlan[];
+  selectedPlanId: string | null;
+  shopping: ShoppingItem[];
+}
+
+interface AppContextValue extends PersistedState {
+  hydrated: boolean;
+  // preferencias
+  updatePreferences: (patch: Partial<Preferences>) => void;
+  completeOnboarding: (prefs: Partial<Preferences>) => void;
+  // despensa
+  addProducts: (products: Product[]) => void;
+  removeProduct: (id: string) => void;
+  clearPantry: () => void;
+  // planes
+  regeneratePlans: () => MealPlan[];
+  selectPlan: (id: string) => void;
+  selectedPlan: MealPlan | null;
+  // lista de la compra
+  buildShoppingFromSelected: () => void;
+  toggleShoppingItem: (key: string) => void;
+  addBoughtToPantry: () => number;
+  clearShopping: () => void;
+}
+
+const AppContext = createContext<AppContextValue | undefined>(undefined);
+
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
+  const [pantry, setPantry] = useState<Product[]>([]);
+  const [plans, setPlans] = useState<MealPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [shopping, setShopping] = useState<ShoppingItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Cargar estado guardado al arrancar
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<PersistedState>;
+          if (parsed.preferences)
+            setPreferences({ ...DEFAULT_PREFERENCES, ...parsed.preferences });
+          if (parsed.pantry) setPantry(parsed.pantry);
+          if (parsed.plans) setPlans(parsed.plans);
+          if (parsed.selectedPlanId !== undefined) setSelectedPlanId(parsed.selectedPlanId);
+          if (parsed.shopping) setShopping(parsed.shopping);
+        }
+      } catch (e) {
+        // Si algo falla, empezamos limpios
+        console.warn('No se pudo cargar el estado guardado', e);
+      } finally {
+        setHydrated(true);
+      }
+    })();
+  }, []);
+
+  // Guardar automáticamente cuando algo cambia (tras hidratar)
+  useEffect(() => {
+    if (!hydrated) return;
+    const state: PersistedState = { preferences, pantry, plans, selectedPlanId, shopping };
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch((e) =>
+      console.warn('No se pudo guardar el estado', e),
+    );
+  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping]);
+
+  const updatePreferences = useCallback((patch: Partial<Preferences>) => {
+    setPreferences((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const completeOnboarding = useCallback((prefs: Partial<Preferences>) => {
+    setPreferences((prev) => ({ ...prev, ...prefs, onboarded: true }));
+  }, []);
+
+  const addProducts = useCallback((products: Product[]) => {
+    if (products.length === 0) return;
+    setPantry((prev) => {
+      const existing = new Set(prev.map((p) => p.ingredientKey));
+      const toAdd = products.filter((p) => !existing.has(p.ingredientKey));
+      return [...toAdd, ...prev];
+    });
+  }, []);
+
+  const removeProduct = useCallback((id: string) => {
+    setPantry((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const clearPantry = useCallback(() => setPantry([]), []);
+
+  const regeneratePlans = useCallback((): MealPlan[] => {
+    const next = engineGeneratePlans(pantry, preferences);
+    setPlans(next);
+    // seleccionamos por defecto el del objetivo preferido (primero)
+    setSelectedPlanId(next.length ? next[0].id : null);
+    return next;
+  }, [pantry, preferences]);
+
+  const selectPlan = useCallback((id: string) => setSelectedPlanId(id), []);
+
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.id === selectedPlanId) ?? null,
+    [plans, selectedPlanId],
+  );
+
+  const buildShoppingFromSelected = useCallback(() => {
+    if (!selectedPlan) return;
+    setShopping(shoppingListFromPlan(selectedPlan, pantry));
+  }, [selectedPlan, pantry]);
+
+  const toggleShoppingItem = useCallback((key: string) => {
+    setShopping((prev) =>
+      prev.map((it) => (it.key === key ? { ...it, checked: !it.checked } : it)),
+    );
+  }, []);
+
+  const addBoughtToPantry = useCallback((): number => {
+    const bought = shopping.filter((it) => it.checked);
+    if (bought.length === 0) return 0;
+    const newProducts: Product[] = bought.map((it) => ({
+      id: `p_${it.key}_${Date.now()}`,
+      raw: it.name,
+      ingredientKey: it.key,
+      displayName: it.name,
+      source: 'compra' as const,
+      addedAt: Date.now(),
+    }));
+    addProducts(newProducts);
+    setShopping((prev) => prev.filter((it) => !it.checked));
+    return bought.length;
+  }, [shopping, addProducts]);
+
+  const clearShopping = useCallback(() => setShopping([]), []);
+
+  const value: AppContextValue = {
+    preferences,
+    pantry,
+    plans,
+    selectedPlanId,
+    shopping,
+    hydrated,
+    updatePreferences,
+    completeOnboarding,
+    addProducts,
+    removeProduct,
+    clearPantry,
+    regeneratePlans,
+    selectPlan,
+    selectedPlan,
+    buildShoppingFromSelected,
+    toggleShoppingItem,
+    addBoughtToPantry,
+    clearShopping,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+export function useApp(): AppContextValue {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useApp debe usarse dentro de <AppProvider>');
+  return ctx;
+}
+
+// Reexport útil para pantallas
+export { RECIPE_BY_ID };

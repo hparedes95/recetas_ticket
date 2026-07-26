@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Recetas del Ticket",
+    "slug": "recetas_ticket",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "recetasticket",
+    "splash": {
+      "backgroundColor": "#F7F8F6",
+      "resizeMode": "contain",
+      "image": "./assets/splash-icon.png"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.recetasticket.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Usamos la cámara para hacer una foto de tu ticket de la compra.",
+        "NSPhotoLibraryUsageDescription": "Accedemos a tus fotos para que puedas subir una imagen de tu ticket."
+      }
+    },
+    "android": {
+      "package": "com.recetasticket.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#DCFCE7",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Accedemos a tus fotos para que puedas subir una imagen de tu ticket.",
+          "cameraPermission": "Usamos la cámara para hacer una foto de tu ticket de la compra."
+        }
+      ]
+    ]
+  }
+}
