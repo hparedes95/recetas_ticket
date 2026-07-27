@@ -1,5 +1,6 @@
 import {
   DietGoal,
+  MacroSplit,
   MealPlan,
   MealSlot,
   PlannedMeal,
@@ -13,6 +14,45 @@ import { RECIPES, RECIPE_BY_ID } from '../data/recipes';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { goalMeta } from '../theme';
 import { newId } from './ticketParser';
+
+/** Reparto aproximado del objetivo de calorías entre las comidas del día */
+const SLOT_KCAL_WEIGHT: Record<MealSlot, number> = {
+  desayuno: 0.25,
+  comida: 0.35,
+  cena: 0.3,
+  snack: 0.1,
+};
+
+/** Reparto de macros de una receta como fracciones (proteína/carbos/grasa del total kcal) */
+export function macroFractions(m: Macros): { p: number; c: number; f: number } {
+  const kcal = m.protein * 4 + m.carbs * 4 + m.fat * 9 || 1;
+  return { p: (m.protein * 4) / kcal, c: (m.carbs * 4) / kcal, f: (m.fat * 9) / kcal };
+}
+
+/** Cercanía 0..1 entre el reparto de macros de una receta y el objetivo (%) */
+export function macroMatch(m: Macros, split: MacroSplit): number {
+  const a = macroFractions(m);
+  const t = { p: split.protein / 100, c: split.carbs / 100, f: split.fat / 100 };
+  const dist = (Math.abs(a.p - t.p) + Math.abs(a.c - t.c) + Math.abs(a.f - t.f)) / 2; // 0..1
+  return 1 - dist;
+}
+
+/** Objetivos por comida derivados del objetivo diario y las comidas elegidas */
+interface Targets {
+  slotKcal: Partial<Record<MealSlot, number>>;
+  macroSplit: MacroSplit | null;
+}
+
+function buildTargets(prefs: Preferences, slots: MealSlot[]): Targets {
+  const slotKcal: Partial<Record<MealSlot, number>> = {};
+  if (prefs.calorieTarget && prefs.calorieTarget > 0) {
+    const totalWeight = slots.reduce((s, sl) => s + SLOT_KCAL_WEIGHT[sl], 0) || 1;
+    for (const sl of slots) {
+      slotKcal[sl] = prefs.calorieTarget * (SLOT_KCAL_WEIGHT[sl] / totalWeight);
+    }
+  }
+  return { slotKcal, macroSplit: prefs.macroSplit ?? null };
+}
 
 /** ¿Es un ingrediente básico de despensa que no penaliza si "falta"? */
 function isStaple(ing: RecipeIngredient): boolean {
@@ -53,6 +93,8 @@ function scoreRecipe(
   recipe: Recipe,
   availableKeys: Set<string>,
   goal: DietGoal,
+  slotTargetKcal?: number,
+  macroSplit?: MacroSplit | null,
 ): ScoredRecipe {
   const coverage = coverageOf(recipe, availableKeys);
   let score = coverage * 1.6; // aprovechar la despensa importa mucho
@@ -77,6 +119,17 @@ function scoreRecipe(
       break;
   }
 
+  // Objetivo de calorías: premia recetas cuya ración se acerca a lo previsto para esa comida
+  if (slotTargetKcal && slotTargetKcal > 0) {
+    const diff = Math.abs(kcal - slotTargetKcal) / slotTargetKcal;
+    score += (1 - Math.min(1, diff)) * 1.8;
+  }
+
+  // Reparto de macros: premia recetas cuyo perfil se acerca al deseado
+  if (macroSplit) {
+    score += macroMatch(recipe.macros, macroSplit) * 1.2;
+  }
+
   // pequeño empujón determinista para dar variedad estable a la semana
   score += (hashString(recipe.id + goal) % 100) / 1000;
   return { recipe, coverage, score };
@@ -97,15 +150,36 @@ function candidatesForSlot(
   availableKeys: Set<string>,
   goal: DietGoal,
   prefs: Preferences,
+  targets: Targets,
 ): ScoredRecipe[] {
   return RECIPES.filter(
     (r) => r.slot.includes(slot) && passesRestrictions(r, prefs) && !hasDislike(r, prefs),
   )
-    .map((r) => scoreRecipe(r, availableKeys, goal))
+    .map((r) => scoreRecipe(r, availableKeys, goal, targets.slotKcal[slot], targets.macroSplit))
     .sort((a, b) => b.score - a.score);
 }
 
 const DAYS = 7;
+
+// Límites del escalado de raciones para acercarse al objetivo de calorías
+const PORTION_MIN = 0.5;
+const PORTION_MAX = 2.5;
+
+/** Ajusta el tamaño de las raciones de cada día para acercarse al objetivo de kcal */
+function applyPortionScaling(meals: PlannedMeal[], calorieTarget: number | null) {
+  if (!calorieTarget || calorieTarget <= 0) return;
+  const byDay = new Map<number, PlannedMeal[]>();
+  for (const m of meals) {
+    if (!byDay.has(m.day)) byDay.set(m.day, []);
+    byDay.get(m.day)!.push(m);
+  }
+  for (const dayMeals of byDay.values()) {
+    const base = dayMeals.reduce((s, m) => s + (RECIPE_BY_ID[m.recipeId]?.macros.kcal ?? 0), 0);
+    if (base <= 0) continue;
+    const factor = Math.max(PORTION_MIN, Math.min(PORTION_MAX, calorieTarget / base));
+    for (const m of dayMeals) m.portionFactor = factor;
+  }
+}
 
 /** Genera un plan semanal para un objetivo concreto */
 export function generatePlanForGoal(
@@ -115,11 +189,12 @@ export function generatePlanForGoal(
 ): MealPlan {
   const availableKeys = new Set(pantry.map((p) => p.ingredientKey));
   const slots = prefs.mealsPerDay.length > 0 ? prefs.mealsPerDay : (['comida', 'cena'] as MealSlot[]);
+  const targets = buildTargets(prefs, slots);
 
   const meals: PlannedMeal[] = [];
 
   for (const slot of slots) {
-    const candidates = candidatesForSlot(slot, availableKeys, goal, prefs);
+    const candidates = candidatesForSlot(slot, availableKeys, goal, prefs, targets);
     if (candidates.length === 0) continue;
     // Rotamos por los mejores candidatos para dar variedad a la semana.
     // El desplazamiento inicial depende del objetivo para que cada plan difiera.
@@ -135,6 +210,8 @@ export function generatePlanForGoal(
     }
   }
 
+  applyPortionScaling(meals, prefs.calorieTarget ?? null);
+
   const missing = computeMissing(meals, availableKeys);
   const avgDailyMacros = computeAvgDailyMacros(meals);
 
@@ -147,6 +224,8 @@ export function generatePlanForGoal(
     meals,
     missing,
     avgDailyMacros,
+    calorieTarget: prefs.calorieTarget ?? null,
+    macroSplit: prefs.macroSplit ?? null,
     createdAt: Date.now(),
   };
 }
@@ -176,10 +255,11 @@ function computeAvgDailyMacros(meals: PlannedMeal[]): Macros {
   for (const m of meals) {
     const r = RECIPE_BY_ID[m.recipeId];
     if (!r) continue;
-    total.kcal += r.macros.kcal;
-    total.protein += r.macros.protein;
-    total.carbs += r.macros.carbs;
-    total.fat += r.macros.fat;
+    const f = m.portionFactor ?? 1;
+    total.kcal += r.macros.kcal * f;
+    total.protein += r.macros.protein * f;
+    total.carbs += r.macros.carbs * f;
+    total.fat += r.macros.fat * f;
   }
   return {
     kcal: Math.round(total.kcal / DAYS),

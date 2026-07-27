@@ -14,6 +14,13 @@ export type DietTag =
   | 'sin_lactosa'
   | 'sin_frutos_secos';
 
+/** Reparto de macros en porcentajes (suman 100) */
+export interface MacroSplit {
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 /** Preferencias del usuario, se guardan en el dispositivo */
 export interface Preferences {
   /** Nº de personas para las que se cocina */
@@ -26,6 +33,10 @@ export interface Preferences {
   dislikes: string[];
   /** Comidas al día que quiere planificar */
   mealsPerDay: MealSlot[];
+  /** Objetivo de calorías al día (null = automático según el objetivo) */
+  calorieTarget: number | null;
+  /** Reparto de macros deseado en % (null = automático) */
+  macroSplit: MacroSplit | null;
   /** Si ya completó el onboarding */
   onboarded: boolean;
 }
@@ -43,7 +54,7 @@ export interface Product {
   quantity?: number;
   unit?: string;
   /** De dónde salió el producto */
-  source: 'manual' | 'foto' | 'compra';
+  source: 'manual' | 'foto' | 'compra' | 'documento';
   addedAt: number;
 }
 
@@ -88,6 +99,8 @@ export interface PlannedMeal {
   recipeId: string;
   /** % de ingredientes principales que ya tienes en la despensa */
   coverage: number;
+  /** Factor de ración para acercarse al objetivo de calorías (1 = ración base) */
+  portionFactor?: number;
 }
 
 /** Un plan semanal completo (una de las varias opciones) */
@@ -101,6 +114,10 @@ export interface MealPlan {
   missing: RecipeIngredient[];
   /** Macros medias por día */
   avgDailyMacros: Macros;
+  /** Objetivo de calorías con el que se generó (si lo había) */
+  calorieTarget?: number | null;
+  /** Reparto de macros objetivo con el que se generó (si lo había) */
+  macroSplit?: MacroSplit | null;
   createdAt: number;
 }
 

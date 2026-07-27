@@ -62,6 +62,14 @@ export default function PlanDetailScreen() {
       <View style={{ height: spacing.lg }} />
       <Card>
         <MacroSummary macros={plan.avgDailyMacros} label="Media por día" />
+        {plan.calorieTarget ? (
+          <Text style={styles.targetNote}>
+            🎯 Tu objetivo: {plan.calorieTarget} kcal
+            {plan.macroSplit
+              ? `  ·  P${plan.macroSplit.protein} · C${plan.macroSplit.carbs} · G${plan.macroSplit.fat}`
+              : ''}
+          </Text>
+        ) : null}
       </Card>
 
       <View style={{ height: spacing.md }} />
@@ -102,7 +110,12 @@ export default function PlanDetailScreen() {
                       <Text style={styles.mealName}>{r.name}</Text>
                     </View>
                     <View style={styles.mealMeta}>
-                      <Text style={styles.mealKcal}>{r.macros.kcal} kcal</Text>
+                      <Text style={styles.mealKcal}>
+                        {Math.round(r.macros.kcal * (m.portionFactor ?? 1))} kcal
+                      </Text>
+                      {m.portionFactor && Math.abs(m.portionFactor - 1) > 0.1 ? (
+                        <Text style={styles.mealPortion}>×{m.portionFactor.toFixed(1)} ración</Text>
+                      ) : null}
                       <Text
                         style={[
                           styles.mealCoverage,
@@ -126,6 +139,13 @@ export default function PlanDetailScreen() {
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   subtitle: { fontSize: font.size.sm, color: colors.textMuted, marginTop: 2, lineHeight: 18 },
+  targetNote: {
+    fontSize: font.size.xs,
+    color: colors.textMuted,
+    fontWeight: font.weight.semibold,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
   dayTitle: {
     fontSize: font.size.lg,
     fontWeight: font.weight.bold,
@@ -147,5 +167,6 @@ const styles = StyleSheet.create({
   mealName: { fontSize: font.size.md, fontWeight: font.weight.semibold, color: colors.text, marginTop: 1 },
   mealMeta: { alignItems: 'flex-end' },
   mealKcal: { fontSize: font.size.xs, color: colors.textMuted },
+  mealPortion: { fontSize: 10, color: colors.textFaint, marginTop: 1 },
   mealCoverage: { fontSize: font.size.xs, fontWeight: font.weight.bold, marginTop: 2 },
 });

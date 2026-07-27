@@ -150,3 +150,46 @@ export const dayNamesFull = [
   'Sábado',
   'Domingo',
 ];
+
+// Objetivo de calorías: presets rápidos y límites del selector
+export const CALORIE_PRESETS = [1500, 1800, 2000, 2200, 2500];
+export const CALORIE_MIN = 1000;
+export const CALORIE_MAX = 4000;
+export const CALORIE_STEP = 50;
+export const DEFAULT_CALORIE_TARGET = 2000;
+
+// Repartos de macros predefinidos (porcentajes que suman 100)
+export interface MacroSplitPreset {
+  key: string;
+  label: string;
+  emoji: string;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export const MACRO_SPLITS: MacroSplitPreset[] = [
+  { key: 'equilibrada', label: 'Equilibrada', emoji: '⚖️', protein: 30, carbs: 40, fat: 30 },
+  { key: 'proteica', label: 'Alta en proteína', emoji: '💪', protein: 40, carbs: 30, fat: 30 },
+  { key: 'low_carb', label: 'Baja en carbos', emoji: '🥑', protein: 35, carbs: 25, fat: 40 },
+  { key: 'energia', label: 'Alta en carbos', emoji: '🍚', protein: 25, carbs: 50, fat: 25 },
+];
+
+export const DEFAULT_MACRO_SPLIT = { protein: 30, carbs: 40, fat: 30 };
+
+// Colores por macro (para gráficos y etiquetas)
+export const macroColors = {
+  protein: { color: '#7C3AED', soft: '#EDE9FE', label: 'Proteína' },
+  carbs: { color: '#0EA5E9', soft: '#E0F2FE', label: 'Carbos' },
+  fat: { color: '#CA8A04', soft: '#FEF9C3', label: 'Grasas' },
+  kcal: { color: '#F97316', soft: '#FFEDD5', label: 'kcal' },
+};
+
+/** Gramos de cada macro para unas kcal y un reparto en % */
+export function macroGramsFor(kcal: number, split: { protein: number; carbs: number; fat: number }) {
+  return {
+    protein: Math.round((kcal * (split.protein / 100)) / 4),
+    carbs: Math.round((kcal * (split.carbs / 100)) / 4),
+    fat: Math.round((kcal * (split.fat / 100)) / 9),
+  };
+}

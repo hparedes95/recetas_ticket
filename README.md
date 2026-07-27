@@ -8,11 +8,14 @@ Hecha con **Expo + React Native + TypeScript**. Compatible con **iOS** y Android
 
 ## ✨ Qué hace
 
-- **Añadir la compra de 3 formas:**
-  - 📷 **Foto del ticket** (cámara o galería) — reconoce los productos del texto.
+- **Añadir la compra de 4 formas:**
+  - 📄 **Documento** (PDF, TXT, CSV…) — lee el texto del documento y reconoce los productos.
+  - 📷 **Foto del ticket** (cámara o galería).
   - ⌨️ **Manual** — escribes o pegas el ticket, un producto por línea.
   - 🛒 **Modo compra** — vas tocando productos mientras compras y se añaden solos.
 - **Despensa** con todo lo disponible, agrupado por categorías.
+- **Objetivo de calorías y reparto de macros** personalizables: fijas tus kcal/día y el % de
+  proteína/carbos/grasas, y los planes ajustan las raciones para acercarse a tu objetivo.
 - **Varios planes semanales** a elegir, cada uno con macros por día y el % que ya cubres con tu despensa.
 - **Recetas** con ingredientes (marcando lo que tienes y lo que falta), pasos y macros por ración.
 - **Lista de la compra** automática con lo que falta para tu plan; marcas lo comprado y pasa a la despensa.
@@ -99,7 +102,9 @@ npx tsc --noEmit     # comprobación de tipos
 
 ## 🚀 Roadmap
 
-- [ ] **OCR real** de la foto del ticket (lectura automática sin escribir).
+- [x] Importar el ticket desde **documento (PDF/TXT/CSV)**.
+- [x] **Objetivo de calorías + macros** personalizable con ajuste de raciones.
+- [ ] **OCR real** de la foto del ticket (y de PDF escaneados).
 - [ ] Recetas generadas con **IA** según ingredientes y objetivo.
 - [ ] Ajustar raciones por nº de personas en la lista de la compra.
 - [ ] Guardar/planificar varias semanas e historial.

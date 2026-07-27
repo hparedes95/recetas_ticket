@@ -5,6 +5,7 @@ import { Screen, Title, Subtitle, Card, AppButton, Chip, SectionTitle } from '..
 import { colors, spacing, font, goalMeta, dietTagMeta, slotMeta } from '../theme';
 import { useApp } from '../context/AppContext';
 import { DietGoal, DietTag, MealSlot } from '../types';
+import { TargetPicker } from '../components/TargetPicker';
 
 const GOALS = Object.keys(goalMeta) as DietGoal[];
 const SLOTS: MealSlot[] = ['desayuno', 'comida', 'cena', 'snack'];
@@ -77,6 +78,15 @@ export default function PreferencesScreen() {
           />
         ))}
       </View>
+
+      <SectionTitle>Calorías y macros</SectionTitle>
+      <Card>
+        <TargetPicker
+          calorieTarget={p.calorieTarget}
+          macroSplit={p.macroSplit}
+          onChange={(next) => updatePreferences(next)}
+        />
+      </Card>
 
       <View style={{ height: spacing.xl }} />
       <AppButton

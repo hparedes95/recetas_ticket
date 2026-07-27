@@ -8,6 +8,7 @@ import { Screen, Title, Subtitle, Card, AppButton, SectionTitle } from '../compo
 import { colors, spacing, font, radius } from '../theme';
 import { useApp } from '../context/AppContext';
 import { parseTicketText, SAMPLE_TICKET } from '../engine/ticketParser';
+import { pickAndReadDocument } from '../engine/documentImport';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { Product } from '../types';
 import { RootStackParamList } from '../navigation/types';
@@ -20,6 +21,7 @@ export default function AddTicketScreen() {
   const [text, setText] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [parsed, setParsed] = useState<Product[] | null>(null);
+  const [docLoading, setDocLoading] = useState(false);
 
   const pickImage = async (fromCamera: boolean) => {
     try {
@@ -38,6 +40,35 @@ export default function AddTicketScreen() {
       }
     } catch (e) {
       Alert.alert('Ups', 'No se pudo abrir la cámara o galería en este dispositivo.');
+    }
+  };
+
+  const importDocument = async () => {
+    try {
+      setDocLoading(true);
+      const result = await pickAndReadDocument();
+      if (!result) return;
+      if (result.hasText) {
+        setText(result.text);
+        const products = parseTicketText(result.text, 'documento');
+        if (products.length > 0) {
+          setParsed(products);
+        } else {
+          Alert.alert(
+            'Documento leído',
+            'Leí el documento pero no reconocí productos. Revisa el texto de abajo y pulsa "Analizar ticket".',
+          );
+        }
+      } else {
+        Alert.alert(
+          'No pude leer el documento',
+          'Puede que sea un PDF escaneado (una imagen). Prueba con una foto, o escribe/pega el contenido a mano.',
+        );
+      }
+    } catch (e) {
+      Alert.alert('Ups', 'No se pudo abrir o leer el documento.');
+    } finally {
+      setDocLoading(false);
     }
   };
 
@@ -68,11 +99,18 @@ export default function AddTicketScreen() {
     <Screen scroll edges={['bottom']}>
       <Title>Añadir ticket</Title>
       <Subtitle>
-        Haz una foto del ticket, o escribe/pega su contenido. Reconoceremos los ingredientes
-        automáticamente.
+        Sube el ticket como documento (PDF, TXT…), hazle una foto, o escribe/pega su contenido.
+        Reconoceremos los ingredientes automáticamente.
       </Subtitle>
 
-      <SectionTitle>1. Foto del ticket (opcional)</SectionTitle>
+      <SectionTitle>1. Documento o foto (opcional)</SectionTitle>
+      <AppButton
+        title={docLoading ? 'Leyendo documento…' : 'Subir documento (PDF, TXT…)'}
+        icon="📄"
+        loading={docLoading}
+        onPress={importDocument}
+      />
+      <View style={{ height: spacing.sm }} />
       <View style={styles.photoRow}>
         <AppButton title="Cámara" icon="📷" variant="secondary" full={false} style={{ flex: 1 }} onPress={() => pickImage(true)} />
         <AppButton title="Galería" icon="🖼️" variant="secondary" full={false} style={{ flex: 1 }} onPress={() => pickImage(false)} />

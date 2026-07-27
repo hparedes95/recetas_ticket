@@ -20,6 +20,8 @@ const DEFAULT_PREFERENCES: Preferences = {
   restrictions: [],
   dislikes: [],
   mealsPerDay: ['desayuno', 'comida', 'cena'],
+  calorieTarget: null,
+  macroSplit: null,
   onboarded: false,
 };
 

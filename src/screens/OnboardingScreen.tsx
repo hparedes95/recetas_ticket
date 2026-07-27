@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Screen, Title, Subtitle, AppButton, Chip, SectionTitle } from '../components/ui';
+import { Screen, Title, Subtitle, AppButton, Chip, SectionTitle, Card } from '../components/ui';
 import { colors, spacing, font, radius, goalMeta, dietTagMeta, slotMeta } from '../theme';
 import { useApp } from '../context/AppContext';
-import { DietGoal, DietTag, MealSlot } from '../types';
+import { DietGoal, DietTag, MacroSplit, MealSlot } from '../types';
+import { TargetPicker } from '../components/TargetPicker';
 
 const GOALS = Object.keys(goalMeta) as DietGoal[];
 const SLOTS: MealSlot[] = ['desayuno', 'comida', 'cena', 'snack'];
@@ -15,6 +16,8 @@ export default function OnboardingScreen() {
   const [people, setPeople] = useState(1);
   const [meals, setMeals] = useState<MealSlot[]>(['desayuno', 'comida', 'cena']);
   const [restrictions, setRestrictions] = useState<DietTag[]>([]);
+  const [calorieTarget, setCalorieTarget] = useState<number | null>(null);
+  const [macroSplit, setMacroSplit] = useState<MacroSplit | null>(null);
 
   const toggleMeal = (s: MealSlot) =>
     setMeals((prev) => (prev.includes(s) ? prev.filter((m) => m !== s) : [...prev, s]));
@@ -78,6 +81,18 @@ export default function OnboardingScreen() {
         ))}
       </View>
 
+      <SectionTitle>Calorías y macros (opcional)</SectionTitle>
+      <Card>
+        <TargetPicker
+          calorieTarget={calorieTarget}
+          macroSplit={macroSplit}
+          onChange={(next) => {
+            setCalorieTarget(next.calorieTarget);
+            setMacroSplit(next.macroSplit);
+          }}
+        />
+      </Card>
+
       <View style={{ height: spacing.xl }} />
       <AppButton
         title="Empezar"
@@ -88,6 +103,8 @@ export default function OnboardingScreen() {
             people,
             mealsPerDay: meals.length ? meals : ['comida', 'cena'],
             restrictions,
+            calorieTarget,
+            macroSplit,
           })
         }
       />

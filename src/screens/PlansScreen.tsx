@@ -18,7 +18,9 @@ function avgCoverage(plan: MealPlan): number {
 
 export default function PlansScreen() {
   const nav = useNavigation<Nav>();
-  const { plans, selectedPlanId, selectPlan, regeneratePlans, pantry } = useApp();
+  const { plans, selectedPlanId, selectPlan, regeneratePlans, pantry, preferences } = useApp();
+  const target = preferences.calorieTarget;
+  const split = preferences.macroSplit;
 
   if (plans.length === 0) {
     return (
@@ -54,6 +56,19 @@ export default function PlansScreen() {
       <Subtitle>
         Distintos menús para toda la semana con lo que tienes. Toca uno para ver el detalle.
       </Subtitle>
+
+      {target ? (
+        <Card style={styles.targetBanner}>
+          <Text style={styles.targetEmoji}>🎯</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.targetTitle}>Tu objetivo diario</Text>
+            <Text style={styles.targetSub}>
+              {target} kcal
+              {split ? `  ·  P${split.protein} · C${split.carbs} · G${split.fat}` : ''}
+            </Text>
+          </View>
+        </Card>
+      ) : null}
 
       <View style={{ height: spacing.lg }} />
 
@@ -116,6 +131,18 @@ export default function PlansScreen() {
                 </Text>
                 <ProgressBar value={cov} color={meta.color} />
               </View>
+
+              {target ? (
+                <Text style={styles.vsTarget}>
+                  {(() => {
+                    const diff = plan.avgDailyMacros.kcal - target;
+                    if (Math.abs(diff) <= 75) return '🎯 En tu objetivo de calorías';
+                    return diff > 0
+                      ? `↑ ${diff} kcal por encima de tu objetivo`
+                      : `↓ ${Math.abs(diff)} kcal por debajo de tu objetivo`;
+                  })()}
+                </Text>
+              ) : null}
             </Card>
           </Pressable>
         );
@@ -148,4 +175,15 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   coverageRow: { gap: spacing.sm },
   coverageLabel: { fontSize: font.size.xs, color: colors.textMuted, fontWeight: font.weight.semibold },
+  vsTarget: { fontSize: font.size.xs, color: colors.textMuted, fontWeight: font.weight.semibold },
+  targetBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    backgroundColor: colors.primarySoft,
+  },
+  targetEmoji: { fontSize: 26 },
+  targetTitle: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.primaryDark },
+  targetSub: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.text, marginTop: 2 },
 });
