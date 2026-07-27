@@ -8,9 +8,23 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { MealPlan, Preferences, Product, ShoppingItem } from '../types';
-import { generatePlans as engineGeneratePlans, shoppingListFromPlan } from '../engine/planner';
+import { MealPlan, MealSlot, PlannedMeal, Preferences, Product, Recipe, ShoppingItem } from '../types';
+import {
+  generatePlans as engineGeneratePlans,
+  shoppingListFromPlan,
+  buildTargets,
+  assembleWeek,
+  coverageOf,
+  computeMissing,
+  computeAvgDailyMacros,
+  ScoredRecipe,
+} from '../engine/planner';
+import { generateAIRecipesForSlot } from '../engine/aiRecipes';
 import { RECIPE_BY_ID } from '../data/recipes';
+import { INGREDIENT_BY_KEY } from '../data/ingredients';
+import { goalMeta } from '../theme';
+import { DietGoal } from '../types';
+import { newId } from '../engine/ticketParser';
 
 const STORAGE_KEY = '@recetas_ticket/state_v1';
 
@@ -22,6 +36,8 @@ const DEFAULT_PREFERENCES: Preferences = {
   mealsPerDay: ['desayuno', 'comida', 'cena'],
   calorieTarget: null,
   macroSplit: null,
+  aiApiKey: null,
+  useAI: false,
   onboarded: false,
 };
 
@@ -31,6 +47,8 @@ interface PersistedState {
   plans: MealPlan[];
   selectedPlanId: string | null;
   shopping: ShoppingItem[];
+  /** Recetas generadas con IA, para poder resolver sus ids tras recargar */
+  aiRecipes: Record<string, Recipe>;
 }
 
 interface AppContextValue extends PersistedState {
@@ -46,6 +64,10 @@ interface AppContextValue extends PersistedState {
   regeneratePlans: () => MealPlan[];
   selectPlan: (id: string) => void;
   selectedPlan: MealPlan | null;
+  getRecipe: (id: string) => Recipe | undefined;
+  // IA
+  generating: boolean;
+  generateAIPlan: (goal: DietGoal) => Promise<MealPlan>;
   // lista de la compra
   buildShoppingFromSelected: () => void;
   toggleShoppingItem: (key: string) => void;
@@ -61,6 +83,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [shopping, setShopping] = useState<ShoppingItem[]>([]);
+  const [aiRecipes, setAiRecipes] = useState<Record<string, Recipe>>({});
+  const [generating, setGenerating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   // Cargar estado guardado al arrancar
@@ -76,6 +100,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (parsed.plans) setPlans(parsed.plans);
           if (parsed.selectedPlanId !== undefined) setSelectedPlanId(parsed.selectedPlanId);
           if (parsed.shopping) setShopping(parsed.shopping);
+          if (parsed.aiRecipes) setAiRecipes(parsed.aiRecipes);
         }
       } catch (e) {
         // Si algo falla, empezamos limpios
@@ -89,11 +114,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Guardar automáticamente cuando algo cambia (tras hidratar)
   useEffect(() => {
     if (!hydrated) return;
-    const state: PersistedState = { preferences, pantry, plans, selectedPlanId, shopping };
+    const state: PersistedState = { preferences, pantry, plans, selectedPlanId, shopping, aiRecipes };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch((e) =>
       console.warn('No se pudo guardar el estado', e),
     );
-  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping]);
+  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping, aiRecipes]);
 
   const updatePreferences = useCallback((patch: Partial<Preferences>) => {
     setPreferences((prev) => ({ ...prev, ...patch }));
@@ -133,10 +158,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [plans, selectedPlanId],
   );
 
+  const getRecipe = useCallback(
+    (id: string): Recipe | undefined => aiRecipes[id] ?? RECIPE_BY_ID[id],
+    [aiRecipes],
+  );
+
+  const generateAIPlan = useCallback(
+    async (goal: DietGoal): Promise<MealPlan> => {
+      const key = preferences.aiApiKey?.trim();
+      if (!key) throw new Error('Añade tu clave de API de Anthropic en Ajustes.');
+      setGenerating(true);
+      try {
+        const slots =
+          preferences.mealsPerDay.length > 0
+            ? preferences.mealsPerDay
+            : (['comida', 'cena'] as MealSlot[]);
+        const targets = buildTargets(preferences, slots);
+        const split = preferences.macroSplit ?? { protein: 30, carbs: 40, fat: 30 };
+        const pantryNames = pantry.map((p) => p.displayName);
+        const dislikeNames = preferences.dislikes.map(
+          (k) => INGREDIENT_BY_KEY[k]?.name ?? k,
+        );
+        const availableKeys = new Set(pantry.map((p) => p.ingredientKey));
+
+        const newRecipes: Record<string, Recipe> = {};
+        const poolsBySlot: Partial<Record<MealSlot, ScoredRecipe[]>> = {};
+
+        for (const slot of slots) {
+          const perSlot =
+            targets.slotKcal[slot] ??
+            (preferences.calorieTarget ? preferences.calorieTarget / slots.length : 600);
+          const recipes = await generateAIRecipesForSlot({
+            apiKey: key,
+            slot,
+            count: 5,
+            targetKcal: Math.round(perSlot),
+            macroSplit: split,
+            pantryNames,
+            restrictions: preferences.restrictions,
+            dislikes: dislikeNames,
+            goal,
+          });
+          poolsBySlot[slot] = recipes.map((r) => {
+            newRecipes[r.id] = r;
+            return { recipe: r, coverage: coverageOf(r, availableKeys), score: 0 };
+          });
+        }
+
+        const meals: PlannedMeal[] = assembleWeek(slots, poolsBySlot, preferences.calorieTarget ?? null);
+        const mergedMap = { ...RECIPE_BY_ID, ...aiRecipes, ...newRecipes };
+        const meta = goalMeta[goal];
+        const plan: MealPlan = {
+          id: newId('aiplan'),
+          goal,
+          title: `${meta.label} · IA`,
+          subtitle: 'Recetas creadas por IA para dar en tus calorías.',
+          meals,
+          missing: computeMissing(meals, availableKeys, mergedMap),
+          avgDailyMacros: computeAvgDailyMacros(meals, mergedMap),
+          calorieTarget: preferences.calorieTarget ?? null,
+          macroSplit: preferences.macroSplit ?? null,
+          createdAt: Date.now(),
+        };
+
+        setAiRecipes((prev) => ({ ...prev, ...newRecipes }));
+        setPlans((prev) => [plan, ...prev]);
+        setSelectedPlanId(plan.id);
+        return plan;
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [preferences, pantry, aiRecipes],
+  );
+
   const buildShoppingFromSelected = useCallback(() => {
     if (!selectedPlan) return;
-    setShopping(shoppingListFromPlan(selectedPlan, pantry));
-  }, [selectedPlan, pantry]);
+    const mergedMap = { ...RECIPE_BY_ID, ...aiRecipes };
+    setShopping(shoppingListFromPlan(selectedPlan, pantry, mergedMap));
+  }, [selectedPlan, pantry, aiRecipes]);
 
   const toggleShoppingItem = useCallback((key: string) => {
     setShopping((prev) =>
@@ -168,6 +268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     plans,
     selectedPlanId,
     shopping,
+    aiRecipes,
     hydrated,
     updatePreferences,
     completeOnboarding,
@@ -177,6 +278,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     regeneratePlans,
     selectPlan,
     selectedPlan,
+    getRecipe,
+    generating,
+    generateAIPlan,
     buildShoppingFromSelected,
     toggleShoppingItem,
     addBoughtToPantry,

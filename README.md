@@ -79,13 +79,18 @@ src/
 ## 🧠 Cómo funciona el motor
 
 1. Cada producto del ticket se normaliza a una **clave de ingrediente** (`"PECHUGA POLLO 500G"` → `pollo`).
-2. El planificador filtra recetas por objetivo y restricciones, y las puntúa por:
-   - **cobertura**: cuánto de la receta ya tienes en la despensa,
-   - **encaje con el objetivo** (p. ej. penaliza calorías altas en "bajar calorías"),
-   - un pequeño factor para dar **variedad** a la semana.
-3. Se monta la semana (7 días × comidas elegidas) y se calcula **lo que falta comprar**.
+2. El planificador filtra recetas por objetivo y restricciones, y las puntúa por cobertura de despensa, encaje con el objetivo y variedad.
+3. Si has fijado un **objetivo de calorías**, el motor **elige la combinación de recetas** cuyo total del día se acerca más a tu objetivo (búsqueda voraz por comida), con un ajuste de ración mínimo y natural (0.85–1.2). No infla raciones para "cuadrar" las calorías.
+4. Se monta la semana (7 días × comidas elegidas) y se calcula **lo que falta comprar**.
 
-> El recetario es local por ahora. Está preparado para, más adelante, generar recetas con **IA** (p. ej. la API de Claude) sin cambiar el resto de la app.
+### 🤖 Recetas con IA (opcional)
+
+Con el recetario local, las calorías son exactas hasta cierto punto (el catálogo es limitado). Para dar **justo** en objetivos altos o muy específicos, la app puede **crear recetas a medida con IA** (API de Claude):
+
+- Actívalo en **Ajustes → “Recetas con IA”** y pega tu **clave de API de Anthropic** (se guarda solo en tu dispositivo, nunca se sube a GitHub).
+- Consigue una clave en <https://console.anthropic.com/settings/keys>. Cada generación de plan es una llamada a la API y **tiene un pequeño coste** en tu cuenta de Anthropic.
+- El modelo por defecto es `claude-opus-5` (definido en `DEFAULT_AI_MODEL`, `src/engine/aiRecipes.ts`). Puedes cambiarlo por uno más económico como `claude-haiku-4-5` o `claude-sonnet-5`.
+- Implementación: `src/engine/aiRecipes.ts` llama a la API por HTTPS directo (`fetch`) porque el SDK oficial de Anthropic depende de módulos de Node y no compila en el motor Hermes de React Native.
 
 ---
 
@@ -103,7 +108,8 @@ npx tsc --noEmit     # comprobación de tipos
 ## 🚀 Roadmap
 
 - [x] Importar el ticket desde **documento (PDF/TXT/CSV)**.
-- [x] **Objetivo de calorías + macros** personalizable con ajuste de raciones.
+- [x] **Objetivo de calorías + macros** con selección de recetas (calorías exactas sin inflar raciones).
+- [x] **Recetas con IA** a medida (API de Claude, con tu propia clave).
 - [ ] **OCR real** de la foto del ticket (y de PDF escaneados).
 - [ ] Recetas generadas con **IA** según ingredientes y objetivo.
 - [ ] Ajustar raciones por nº de personas en la lista de la compra.

@@ -6,7 +6,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Screen, Title, Card, AppButton, MacroSummary, EmptyState } from '../components/ui';
 import { colors, spacing, font, radius, goalMeta, slotMeta, dayNamesFull } from '../theme';
 import { useApp } from '../context/AppContext';
-import { RECIPE_BY_ID } from '../data/recipes';
 import { MealSlot, PlannedMeal } from '../types';
 import { RootStackParamList } from '../navigation/types';
 
@@ -18,7 +17,7 @@ const SLOT_ORDER: MealSlot[] = ['desayuno', 'comida', 'cena', 'snack'];
 export default function PlanDetailScreen() {
   const nav = useNavigation<Nav>();
   const route = useRoute<DetailRoute>();
-  const { plans, selectPlan, buildShoppingFromSelected } = useApp();
+  const { plans, selectPlan, buildShoppingFromSelected, getRecipe } = useApp();
 
   const plan = useMemo(
     () => plans.find((p) => p.id === route.params.planId),
@@ -94,7 +93,7 @@ export default function PlanDetailScreen() {
               <Text style={styles.emptyDay}>Sin comidas planificadas</Text>
             ) : (
               meals.map((m, i) => {
-                const r = RECIPE_BY_ID[m.recipeId];
+                const r = getRecipe(m.recipeId);
                 if (!r) return null;
                 return (
                   <Pressable

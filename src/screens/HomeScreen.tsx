@@ -7,13 +7,12 @@ import { Screen, Title, Subtitle, Card, AppButton, SectionTitle, Badge } from '.
 import { colors, spacing, font, radius, goalMeta, shadow } from '../theme';
 import { useApp } from '../context/AppContext';
 import { RootStackParamList } from '../navigation/types';
-import { RECIPE_BY_ID } from '../data/recipes';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
   const nav = useNavigation<Nav>();
-  const { pantry, selectedPlan, plans, regeneratePlans } = useApp();
+  const { pantry, selectedPlan, plans, regeneratePlans, getRecipe } = useApp();
 
   const greeting = getGreeting();
 
@@ -83,7 +82,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.previewRow}>
               {selectedPlan.meals.slice(0, 6).map((m, i) => {
-                const r = RECIPE_BY_ID[m.recipeId];
+                const r = getRecipe(m.recipeId);
                 return (
                   <Text key={i} style={styles.previewEmoji}>
                     {r?.emoji ?? '🍽️'}

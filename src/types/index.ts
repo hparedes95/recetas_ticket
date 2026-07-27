@@ -37,6 +37,10 @@ export interface Preferences {
   calorieTarget: number | null;
   /** Reparto de macros deseado en % (null = automático) */
   macroSplit: MacroSplit | null;
+  /** Clave de API de Anthropic para generar recetas con IA (solo en el dispositivo) */
+  aiApiKey: string | null;
+  /** Si el usuario quiere usar la IA para crear recetas */
+  useAI: boolean;
   /** Si ya completó el onboarding */
   onboarded: boolean;
 }

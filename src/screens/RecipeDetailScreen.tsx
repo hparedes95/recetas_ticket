@@ -5,7 +5,6 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { Screen, Title, Card, MacroSummary, Badge, EmptyState } from '../components/ui';
 import { colors, spacing, font, radius, dietTagMeta, slotMeta } from '../theme';
 import { useApp } from '../context/AppContext';
-import { RECIPE_BY_ID } from '../data/recipes';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { RootStackParamList } from '../navigation/types';
 
@@ -13,8 +12,8 @@ type DetailRoute = RouteProp<RootStackParamList, 'RecipeDetail'>;
 
 export default function RecipeDetailScreen() {
   const route = useRoute<DetailRoute>();
-  const { pantry } = useApp();
-  const recipe = RECIPE_BY_ID[route.params.recipeId];
+  const { pantry, getRecipe } = useApp();
+  const recipe = getRecipe(route.params.recipeId);
 
   const availableKeys = useMemo(() => new Set(pantry.map((p) => p.ingredientKey)), [pantry]);
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -18,9 +18,26 @@ function avgCoverage(plan: MealPlan): number {
 
 export default function PlansScreen() {
   const nav = useNavigation<Nav>();
-  const { plans, selectedPlanId, selectPlan, regeneratePlans, pantry, preferences } = useApp();
+  const { plans, selectedPlanId, selectPlan, regeneratePlans, pantry, preferences, generateAIPlan, generating } =
+    useApp();
   const target = preferences.calorieTarget;
   const split = preferences.macroSplit;
+
+  const runAI = async () => {
+    if (!preferences.useAI || !preferences.aiApiKey?.trim()) {
+      Alert.alert(
+        'Activa la IA',
+        'Ve a Ajustes → “Recetas con IA” para activarla y añadir tu clave de Anthropic.',
+      );
+      return;
+    }
+    try {
+      const plan = await generateAIPlan(preferences.defaultGoal);
+      nav.navigate('PlanDetail', { planId: plan.id });
+    } catch (e) {
+      Alert.alert('No se pudo generar', e instanceof Error ? e.message : 'Inténtalo de nuevo.');
+    }
+  };
 
   if (plans.length === 0) {
     return (
@@ -37,13 +54,16 @@ export default function PlansScreen() {
               : 'Añade productos a tu despensa y luego genera tus planes de comida.'
           }
           action={
-            <AppButton
-              title="Generar planes"
-              icon="✨"
-              onPress={() => {
-                regeneratePlans();
-              }}
-            />
+            <View style={{ gap: spacing.sm }}>
+              <AppButton title="Generar planes" icon="✨" onPress={() => regeneratePlans()} />
+              <AppButton
+                title={generating ? 'Creando con IA…' : 'Crear plan con IA'}
+                icon="🤖"
+                variant="secondary"
+                loading={generating}
+                onPress={runAI}
+              />
+            </View>
           }
         />
       </Screen>
@@ -149,6 +169,14 @@ export default function PlansScreen() {
       })}
 
       <View style={{ height: spacing.md }} />
+      <AppButton
+        title={generating ? 'Creando con IA…' : 'Crear plan con IA'}
+        icon="🤖"
+        variant="secondary"
+        loading={generating}
+        onPress={runAI}
+      />
+      <View style={{ height: spacing.sm }} />
       <AppButton title="Regenerar opciones" icon="🔄" variant="ghost" onPress={regeneratePlans} />
     </Screen>
   );
