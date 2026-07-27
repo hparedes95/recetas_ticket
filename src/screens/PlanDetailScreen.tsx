@@ -113,9 +113,6 @@ export default function PlanDetailScreen() {
                       <Text style={styles.mealKcal}>
                         {Math.round(r.macros.kcal * (m.portionFactor ?? 1))} kcal
                       </Text>
-                      {m.portionFactor && Math.abs(m.portionFactor - 1) > 0.1 ? (
-                        <Text style={styles.mealPortion}>×{m.portionFactor.toFixed(1)} ración</Text>
-                      ) : null}
                       <Text
                         style={[
                           styles.mealCoverage,

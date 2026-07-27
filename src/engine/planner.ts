@@ -38,12 +38,12 @@ export function macroMatch(m: Macros, split: MacroSplit): number {
 }
 
 /** Objetivos por comida derivados del objetivo diario y las comidas elegidas */
-interface Targets {
+export interface Targets {
   slotKcal: Partial<Record<MealSlot, number>>;
   macroSplit: MacroSplit | null;
 }
 
-function buildTargets(prefs: Preferences, slots: MealSlot[]): Targets {
+export function buildTargets(prefs: Preferences, slots: MealSlot[]): Targets {
   const slotKcal: Partial<Record<MealSlot, number>> = {};
   if (prefs.calorieTarget && prefs.calorieTarget > 0) {
     const totalWeight = slots.reduce((s, sl) => s + SLOT_KCAL_WEIGHT[sl], 0) || 1;
@@ -83,7 +83,7 @@ function hasDislike(recipe: Recipe, prefs: Preferences): boolean {
   return recipe.ingredients.some((i) => prefs.dislikes.includes(i.key));
 }
 
-interface ScoredRecipe {
+export interface ScoredRecipe {
   recipe: Recipe;
   coverage: number;
   score: number;
@@ -161,24 +161,89 @@ function candidatesForSlot(
 
 const DAYS = 7;
 
-// Límites del escalado de raciones para acercarse al objetivo de calorías
-const PORTION_MIN = 0.5;
-const PORTION_MAX = 2.5;
+// Banda de ración natural: nunca inflamos ni recortamos de forma exagerada.
+// La precisión de calorías se consigue ELIGIENDO la combinación de recetas,
+// no agrandando una ración; este factor solo afina el resto (±15/20%).
+const PORTION_MIN = 0.85;
+const PORTION_MAX = 1.2;
 
-/** Ajusta el tamaño de las raciones de cada día para acercarse al objetivo de kcal */
-function applyPortionScaling(meals: PlannedMeal[], calorieTarget: number | null) {
-  if (!calorieTarget || calorieTarget <= 0) return;
-  const byDay = new Map<number, PlannedMeal[]>();
-  for (const m of meals) {
-    if (!byDay.has(m.day)) byDay.set(m.day, []);
-    byDay.get(m.day)!.push(m);
+/**
+ * Monta la semana eligiendo, para cada día, la combinación de recetas cuyo total
+ * de calorías se acerca más al objetivo (búsqueda voraz por comida), dando
+ * variedad día a día. Después aplica un factor de ración suave para cerrar el
+ * hueco que quede, sin inflar.
+ */
+export function assembleWeek(
+  slots: MealSlot[],
+  poolsBySlot: Partial<Record<MealSlot, ScoredRecipe[]>>,
+  target: number | null,
+): PlannedMeal[] {
+  const meals: PlannedMeal[] = [];
+  const lastUsed: Partial<Record<MealSlot, string>> = {};
+  const usage = new Map<string, number>(); // veces que se ha usado cada receta en la semana
+  const VARIETY_PENALTY = 55; // kcal-equivalente por repetición: fomenta variedad
+
+  for (let day = 0; day < DAYS; day++) {
+    const chosen: Partial<Record<MealSlot, ScoredRecipe>> = {};
+
+    // Semilla con rotación para variedad, evitando repetir la receta del día anterior
+    for (const slot of slots) {
+      const pool = poolsBySlot[slot];
+      if (!pool || pool.length === 0) continue;
+      let idx = (hashString(slot) + day) % pool.length;
+      if (pool.length > 1 && pool[idx].recipe.id === lastUsed[slot]) idx = (idx + 1) % pool.length;
+      chosen[slot] = pool[idx];
+    }
+
+    // Ajuste voraz: acercarse al objetivo de kcal del día, penalizando repetir recetas
+    if (target && target > 0) {
+      for (let pass = 0; pass < 3; pass++) {
+        for (const slot of slots) {
+          const pool = poolsBySlot[slot];
+          if (!pool || pool.length === 0) continue;
+          const others = slots.reduce(
+            (s, sl) => s + (sl === slot ? 0 : chosen[sl]?.recipe.macros.kcal ?? 0),
+            0,
+          );
+          const cost = (r: ScoredRecipe) =>
+            Math.abs(others + r.recipe.macros.kcal - target) +
+            VARIETY_PENALTY * (usage.get(r.recipe.id) ?? 0);
+          let best = chosen[slot]!;
+          let bestCost = cost(best);
+          for (const cand of pool) {
+            const c = cost(cand);
+            if (c < bestCost - 1) {
+              best = cand;
+              bestCost = c;
+            }
+          }
+          chosen[slot] = best;
+        }
+      }
+    }
+
+    // Factor de ración suave (natural) para cerrar el hueco restante
+    let factor = 1;
+    if (target && target > 0) {
+      const base = slots.reduce((s, sl) => s + (chosen[sl]?.recipe.macros.kcal ?? 0), 0);
+      if (base > 0) factor = Math.max(PORTION_MIN, Math.min(PORTION_MAX, target / base));
+    }
+
+    for (const slot of slots) {
+      const pick = chosen[slot];
+      if (!pick) continue;
+      meals.push({
+        day,
+        slot,
+        recipeId: pick.recipe.id,
+        coverage: pick.coverage,
+        portionFactor: factor,
+      });
+      lastUsed[slot] = pick.recipe.id;
+      usage.set(pick.recipe.id, (usage.get(pick.recipe.id) ?? 0) + 1);
+    }
   }
-  for (const dayMeals of byDay.values()) {
-    const base = dayMeals.reduce((s, m) => s + (RECIPE_BY_ID[m.recipeId]?.macros.kcal ?? 0), 0);
-    if (base <= 0) continue;
-    const factor = Math.max(PORTION_MIN, Math.min(PORTION_MAX, calorieTarget / base));
-    for (const m of dayMeals) m.portionFactor = factor;
-  }
+  return meals;
 }
 
 /** Genera un plan semanal para un objetivo concreto */
@@ -191,26 +256,13 @@ export function generatePlanForGoal(
   const slots = prefs.mealsPerDay.length > 0 ? prefs.mealsPerDay : (['comida', 'cena'] as MealSlot[]);
   const targets = buildTargets(prefs, slots);
 
-  const meals: PlannedMeal[] = [];
-
+  // Un buen surtido de candidatos por comida (los mejores por objetivo/macros/despensa)
+  const poolsBySlot: Partial<Record<MealSlot, ScoredRecipe[]>> = {};
   for (const slot of slots) {
-    const candidates = candidatesForSlot(slot, availableKeys, goal, prefs, targets);
-    if (candidates.length === 0) continue;
-    // Rotamos por los mejores candidatos para dar variedad a la semana.
-    // El desplazamiento inicial depende del objetivo para que cada plan difiera.
-    const offset = hashString(goal + slot) % candidates.length;
-    for (let day = 0; day < DAYS; day++) {
-      const pick = candidates[(offset + day) % candidates.length];
-      meals.push({
-        day,
-        slot,
-        recipeId: pick.recipe.id,
-        coverage: pick.coverage,
-      });
-    }
+    poolsBySlot[slot] = candidatesForSlot(slot, availableKeys, goal, prefs, targets).slice(0, 10);
   }
 
-  applyPortionScaling(meals, prefs.calorieTarget ?? null);
+  const meals = assembleWeek(slots, poolsBySlot, prefs.calorieTarget ?? null);
 
   const missing = computeMissing(meals, availableKeys);
   const avgDailyMacros = computeAvgDailyMacros(meals);
@@ -234,10 +286,11 @@ export function generatePlanForGoal(
 export function computeMissing(
   meals: PlannedMeal[],
   availableKeys: Set<string>,
+  recipeMap: Record<string, Recipe> = RECIPE_BY_ID,
 ): RecipeIngredient[] {
   const byKey = new Map<string, RecipeIngredient>();
   for (const m of meals) {
-    const recipe = RECIPE_BY_ID[m.recipeId];
+    const recipe = recipeMap[m.recipeId];
     if (!recipe) continue;
     for (const ing of recipe.ingredients) {
       if (isStaple(ing)) continue;
@@ -250,10 +303,13 @@ export function computeMissing(
   return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function computeAvgDailyMacros(meals: PlannedMeal[]): Macros {
+export function computeAvgDailyMacros(
+  meals: PlannedMeal[],
+  recipeMap: Record<string, Recipe> = RECIPE_BY_ID,
+): Macros {
   const total: Macros = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
   for (const m of meals) {
-    const r = RECIPE_BY_ID[m.recipeId];
+    const r = recipeMap[m.recipeId];
     if (!r) continue;
     const f = m.portionFactor ?? 1;
     total.kcal += r.macros.kcal * f;
@@ -285,11 +341,15 @@ export function generatePlans(pantry: Product[], prefs: Preferences): MealPlan[]
  * A partir de un plan, construye la lista de la compra sugerida, contando en
  * cuántas recetas se usa cada ingrediente que falta.
  */
-export function shoppingListFromPlan(plan: MealPlan, pantry: Product[]) {
+export function shoppingListFromPlan(
+  plan: MealPlan,
+  pantry: Product[],
+  recipeMap: Record<string, Recipe> = RECIPE_BY_ID,
+) {
   const availableKeys = new Set(pantry.map((p) => p.ingredientKey));
   const counts = new Map<string, { name: string; usedIn: number }>();
   for (const m of plan.meals) {
-    const recipe = RECIPE_BY_ID[m.recipeId];
+    const recipe = recipeMap[m.recipeId];
     if (!recipe) continue;
     for (const ing of recipe.ingredients) {
       if (isStaple(ing)) continue;
