@@ -17,7 +17,6 @@ const sourceMeta: Record<Product['source'], { label: string; color: string; soft
   foto: { label: 'Ticket', color: colors.primary, soft: colors.primarySoft },
   manual: { label: 'Manual', color: '#7C3AED', soft: '#EDE9FE' },
   compra: { label: 'Compra', color: colors.accent, soft: colors.accentSoft },
-  documento: { label: 'Documento', color: '#0EA5E9', soft: '#E0F2FE' },
 };
 
 export default function PantryScreen() {

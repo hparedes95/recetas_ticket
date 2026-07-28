@@ -8,7 +8,7 @@ import { Screen, Title, Subtitle, Card, AppButton, SectionTitle } from '../compo
 import { colors, spacing, font, radius } from '../theme';
 import { useApp } from '../context/AppContext';
 import { parseTicketText, SAMPLE_TICKET } from '../engine/ticketParser';
-import { pickAndReadDocument } from '../engine/documentImport';
+import { parseTicketWithAI } from '../engine/aiTicket';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { Product } from '../types';
 import { RootStackParamList } from '../navigation/types';
@@ -17,11 +17,13 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function AddTicketScreen() {
   const nav = useNavigation<Nav>();
-  const { addProducts } = useApp();
+  const { addProducts, preferences } = useApp();
   const [text, setText] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [parsed, setParsed] = useState<Product[] | null>(null);
-  const [docLoading, setDocLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const aiEnabled = preferences.useAI && !!preferences.aiApiKey?.trim();
 
   const pickImage = async (fromCamera: boolean) => {
     try {
@@ -43,41 +45,43 @@ export default function AddTicketScreen() {
     }
   };
 
-  const importDocument = async () => {
-    try {
-      setDocLoading(true);
-      const result = await pickAndReadDocument();
-      if (!result) return;
-      if (result.hasText) {
-        setText(result.text);
-        const products = parseTicketText(result.text, 'documento');
+  const analyze = async () => {
+    const raw = text.trim();
+    if (!raw) {
+      Alert.alert(
+        'Añade el ticket',
+        'Escribe o pega el contenido del ticket, un producto por línea. También puedes usar el ejemplo.',
+      );
+      return;
+    }
+
+    // Con IA activada: lectura precisa del ticket
+    if (aiEnabled) {
+      try {
+        setAnalyzing(true);
+        const products = await parseTicketWithAI(raw, preferences.aiApiKey!.trim());
         if (products.length > 0) {
           setParsed(products);
-        } else {
-          Alert.alert(
-            'Documento leído',
-            'Leí el documento pero no reconocí productos. Revisa el texto de abajo y pulsa "Analizar ticket".',
-          );
+          return;
         }
-      } else {
+        Alert.alert('Sin productos', 'La IA no encontró productos de alimentación en el texto.');
+        return;
+      } catch (e) {
         Alert.alert(
-          'No pude leer el documento',
-          'Puede que sea un PDF escaneado (una imagen). Prueba con una foto, o escribe/pega el contenido a mano.',
+          'IA no disponible',
+          `${e instanceof Error ? e.message : 'Error con la IA.'} Uso el reconocimiento local.`,
         );
+        // seguimos con el reconocimiento local
+      } finally {
+        setAnalyzing(false);
       }
-    } catch (e) {
-      Alert.alert('Ups', 'No se pudo abrir o leer el documento.');
-    } finally {
-      setDocLoading(false);
     }
-  };
 
-  const analyze = () => {
-    const products = parseTicketText(text, imageUri ? 'foto' : 'manual');
+    const products = parseTicketText(raw, imageUri ? 'foto' : 'manual');
     if (products.length === 0) {
       Alert.alert(
         'No reconocí productos',
-        'Escribe o pega el contenido del ticket, un producto por línea. También puedes probar con el ejemplo.',
+        'Escribe o pega el contenido del ticket, un producto por línea.',
       );
       return;
     }
@@ -95,22 +99,18 @@ export default function AddTicketScreen() {
   const removeFromParsed = (id: string) =>
     setParsed((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
 
+  const recognized = parsed?.filter((p) => !p.ingredientKey.startsWith('otro:')).length ?? 0;
+
   return (
     <Screen scroll edges={['bottom']}>
       <Title>Añadir ticket</Title>
       <Subtitle>
-        Sube el ticket como documento (PDF, TXT…), hazle una foto, o escribe/pega su contenido.
-        Reconoceremos los ingredientes automáticamente.
+        {aiEnabled
+          ? 'Hazle una foto y copia el texto, o escribe/pega el ticket. La IA leerá los productos por ti.'
+          : 'Hazle una foto y copia el texto, o escribe/pega el ticket. Reconoceremos los productos automáticamente.'}
       </Subtitle>
 
-      <SectionTitle>1. Documento o foto (opcional)</SectionTitle>
-      <AppButton
-        title={docLoading ? 'Leyendo documento…' : 'Subir documento (PDF, TXT…)'}
-        icon="📄"
-        loading={docLoading}
-        onPress={importDocument}
-      />
-      <View style={{ height: spacing.sm }} />
+      <SectionTitle>1. Foto del ticket (opcional)</SectionTitle>
       <View style={styles.photoRow}>
         <AppButton title="Cámara" icon="📷" variant="secondary" full={false} style={{ flex: 1 }} onPress={() => pickImage(true)} />
         <AppButton title="Galería" icon="🖼️" variant="secondary" full={false} style={{ flex: 1 }} onPress={() => pickImage(false)} />
@@ -119,8 +119,7 @@ export default function AddTicketScreen() {
         <View style={styles.imageWrap}>
           <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
           <Text style={styles.imageHint}>
-            📝 De momento, copia debajo lo que ponga el ticket (el reconocimiento automático de la
-            foto llegará pronto).
+            📝 Copia debajo lo que ponga el ticket (la lectura automática de la foto llegará pronto).
           </Text>
         </View>
       ) : null}
@@ -144,21 +143,32 @@ export default function AddTicketScreen() {
       />
 
       <View style={{ height: spacing.md }} />
-      <AppButton title="Analizar ticket" icon="🔍" onPress={analyze} />
+      <AppButton
+        title={analyzing ? 'Leyendo con IA…' : aiEnabled ? 'Analizar ticket con IA' : 'Analizar ticket'}
+        icon={aiEnabled ? '🤖' : '🔍'}
+        loading={analyzing}
+        onPress={analyze}
+      />
 
       {parsed ? (
         <>
-          <SectionTitle>Productos reconocidos ({parsed.length})</SectionTitle>
+          <SectionTitle>Productos detectados ({parsed.length})</SectionTitle>
+          {recognized < parsed.length ? (
+            <Text style={styles.hint}>
+              {recognized} vinculados a recetas · {parsed.length - recognized} guardados como “otros”.
+            </Text>
+          ) : null}
           <Card>
             {parsed.map((p) => {
               const def = INGREDIENT_BY_KEY[p.ingredientKey];
+              const isOther = p.ingredientKey.startsWith('otro:');
               return (
                 <View key={p.id} style={styles.parsedRow}>
-                  <Text style={styles.parsedEmoji}>{def?.emoji ?? '🛒'}</Text>
+                  <Text style={styles.parsedEmoji}>{def?.emoji ?? (isOther ? '🛒' : '🍽️')}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.parsedName}>{p.displayName}</Text>
                     <Text style={styles.parsedRaw} numberOfLines={1}>
-                      {p.raw}
+                      {isOther ? 'Otro producto' : p.raw}
                     </Text>
                   </View>
                   <Pressable hitSlop={10} onPress={() => removeFromParsed(p.id)}>
@@ -199,6 +209,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     lineHeight: 22,
   },
+  hint: { fontSize: font.size.xs, color: colors.textMuted, marginBottom: spacing.sm },
   parsedRow: {
     flexDirection: 'row',
     alignItems: 'center',

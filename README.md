@@ -8,11 +8,11 @@ Hecha con **Expo + React Native + TypeScript**. Compatible con **iOS** y Android
 
 ## ✨ Qué hace
 
-- **Añadir la compra de 4 formas:**
-  - 📄 **Documento** (PDF, TXT, CSV…) — lee el texto del documento y reconoce los productos.
-  - 📷 **Foto del ticket** (cámara o galería).
+- **Añadir la compra de 3 formas:**
+  - 📷 **Foto del ticket** (cámara o galería) + pegas/copias el texto.
   - ⌨️ **Manual** — escribes o pegas el ticket, un producto por línea.
   - 🛒 **Modo compra** — vas tocando productos mientras compras y se añaden solos.
+- **Detección de productos** con un diccionario amplio de alimentos (marcas, sinónimos, plurales) que filtra el ruido del ticket (totales, IVA, bolsas, droguería…) y conserva también lo que no reconoce. Con la IA activada, la lectura del ticket es aún más precisa.
 - **Despensa** con todo lo disponible, agrupado por categorías.
 - **Objetivo de calorías y reparto de macros** personalizables: fijas tus kcal/día y el % de
   proteína/carbos/grasas, y los planes ajustan las raciones para acercarse a tu objetivo.
@@ -107,10 +107,10 @@ npx tsc --noEmit     # comprobación de tipos
 
 ## 🚀 Roadmap
 
-- [x] Importar el ticket desde **documento (PDF/TXT/CSV)**.
+- [x] **Detección de productos** ampliada + lectura de tickets con IA.
 - [x] **Objetivo de calorías + macros** con selección de recetas (calorías exactas sin inflar raciones).
 - [x] **Recetas con IA** a medida (API de Claude, con tu propia clave).
-- [ ] **OCR real** de la foto del ticket (y de PDF escaneados).
+- [ ] **OCR real** de la foto del ticket (leer la imagen sin copiar el texto).
 - [ ] Recetas generadas con **IA** según ingredientes y objetivo.
 - [ ] Ajustar raciones por nº de personas en la lista de la compra.
 - [ ] Guardar/planificar varias semanas e historial.

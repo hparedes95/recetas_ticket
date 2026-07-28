@@ -17,6 +17,8 @@ export interface IngredientDef {
     | 'legumbre'
     | 'huevo'
     | 'despensa'
+    | 'bebida'
+    | 'dulce'
     | 'otro';
   /** Palabras clave que, si aparecen en el ticket, activan esta clave */
   keywords: string[];
@@ -96,7 +98,93 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'especias', name: 'Especias', emoji: '🌶️', category: 'despensa', keywords: ['pimienta', 'oregano', 'orégano', 'comino', 'curry', 'pimenton', 'pimentón', 'especias'], staple: true },
   { key: 'chocolate', name: 'Chocolate', emoji: '🍫', category: 'despensa', keywords: ['chocolate', 'cacao', 'nutella'] },
   { key: 'miel', name: 'Miel', emoji: '🍯', category: 'despensa', keywords: ['miel'], staple: true },
-  { key: 'frutos_secos', name: 'Frutos secos', emoji: '🥜', category: 'despensa', keywords: ['nueces', 'almendra', 'cacahuete', 'anacardo', 'frutos secos'] },
+  { key: 'frutos_secos', name: 'Frutos secos', emoji: '🥜', category: 'despensa', keywords: ['nueces', 'almendra', 'cacahuete', 'anacardo', 'frutos secos', 'pipas', 'pistacho', 'avellana'] },
+
+  // Carnes y embutidos (ampliación)
+  { key: 'salchicha', name: 'Salchichas', emoji: '🌭', category: 'carne', keywords: ['salchicha', 'frankfurt', 'butifarra'] },
+  { key: 'longaniza', name: 'Longaniza / morcilla', emoji: '🌭', category: 'carne', keywords: ['longaniza', 'morcilla', 'chistorra'] },
+  { key: 'costillas', name: 'Costillas', emoji: '🍖', category: 'carne', keywords: ['costilla', 'costillar', 'secreto', 'presa'] },
+  { key: 'conejo', name: 'Conejo', emoji: '🍖', category: 'carne', keywords: ['conejo'] },
+  { key: 'cordero', name: 'Cordero', emoji: '🍖', category: 'carne', keywords: ['cordero'] },
+  { key: 'salchichon', name: 'Fuet / salchichón', emoji: '🥓', category: 'carne', keywords: ['fuet', 'salchichon', 'lomo embuchado', 'chopped', 'mortadela'] },
+
+  // Pescados y marisco (ampliación)
+  { key: 'bacalao', name: 'Bacalao', emoji: '🐟', category: 'pescado', keywords: ['bacalao'] },
+  { key: 'dorada', name: 'Dorada / lubina', emoji: '🐟', category: 'pescado', keywords: ['dorada', 'lubina', 'trucha'] },
+  { key: 'lenguado', name: 'Lenguado / gallo', emoji: '🐟', category: 'pescado', keywords: ['lenguado', 'gallo', 'panga'] },
+  { key: 'sardina', name: 'Sardina / caballa', emoji: '🐟', category: 'pescado', keywords: ['sardina', 'caballa', 'boqueron', 'anchoa'] },
+  { key: 'mejillon', name: 'Mejillones / almejas', emoji: '🦪', category: 'pescado', keywords: ['mejillon', 'almeja', 'berberecho', 'chirla'] },
+  { key: 'calamar', name: 'Calamar / sepia', emoji: '🦑', category: 'pescado', keywords: ['calamar', 'sepia', 'chipiron', 'pulpo', 'anilla'] },
+  { key: 'surimi', name: 'Surimi / palitos', emoji: '🦀', category: 'pescado', keywords: ['surimi', 'palitos de mar', 'palitos cangrejo'] },
+
+  // Lácteos (ampliación)
+  { key: 'kefir', name: 'Kéfir', emoji: '🥛', category: 'lacteo', keywords: ['kefir', 'kéfir'] },
+  { key: 'postre_lacteo', name: 'Flan / natillas', emoji: '🍮', category: 'lacteo', keywords: ['flan', 'natillas', 'cuajada', 'arroz con leche', 'actimel', 'danacol'] },
+  { key: 'batido_lacteo', name: 'Batido / cacao', emoji: '🥤', category: 'lacteo', keywords: ['batido', 'cola cao', 'colacao', 'nesquik', 'cacao soluble'] },
+
+  // Verduras y hortalizas (ampliación)
+  { key: 'judia_verde', name: 'Judías verdes', emoji: '🫛', category: 'verdura', keywords: ['judia verde', 'judias verdes', 'vainas'] },
+  { key: 'guisante', name: 'Guisantes', emoji: '🫛', category: 'verdura', keywords: ['guisante'] },
+  { key: 'coliflor', name: 'Coliflor', emoji: '🥦', category: 'verdura', keywords: ['coliflor'] },
+  { key: 'col', name: 'Col / repollo', emoji: '🥬', category: 'verdura', keywords: ['repollo', 'lombarda', 'col rizada', 'kale'] },
+  { key: 'acelga', name: 'Acelgas', emoji: '🥬', category: 'verdura', keywords: ['acelga'] },
+  { key: 'puerro', name: 'Puerro', emoji: '🧅', category: 'verdura', keywords: ['puerro'] },
+  { key: 'apio', name: 'Apio', emoji: '🥬', category: 'verdura', keywords: ['apio'] },
+  { key: 'calabaza', name: 'Calabaza', emoji: '🎃', category: 'verdura', keywords: ['calabaza'] },
+  { key: 'esparrago', name: 'Espárragos', emoji: '🌱', category: 'verdura', keywords: ['esparrago', 'espárrago'] },
+  { key: 'alcachofa', name: 'Alcachofas', emoji: '🌿', category: 'verdura', keywords: ['alcachofa'] },
+  { key: 'setas', name: 'Setas', emoji: '🍄', category: 'verdura', keywords: ['setas', 'boletus', 'shiitake'] },
+  { key: 'aceituna', name: 'Aceitunas', emoji: '🫒', category: 'verdura', keywords: ['aceituna'] },
+  { key: 'jengibre', name: 'Jengibre', emoji: '🫚', category: 'verdura', keywords: ['jengibre'] },
+
+  // Frutas (ampliación)
+  { key: 'pera', name: 'Pera', emoji: '🍐', category: 'fruta', keywords: ['pera'] },
+  { key: 'uva', name: 'Uvas', emoji: '🍇', category: 'fruta', keywords: ['uva'] },
+  { key: 'melon', name: 'Melón / sandía', emoji: '🍉', category: 'fruta', keywords: ['melon', 'melón', 'sandia', 'sandía'] },
+  { key: 'pina', name: 'Piña', emoji: '🍍', category: 'fruta', keywords: ['piña', 'pina'] },
+  { key: 'kiwi', name: 'Kiwi', emoji: '🥝', category: 'fruta', keywords: ['kiwi'] },
+  { key: 'mango', name: 'Mango', emoji: '🥭', category: 'fruta', keywords: ['mango', 'papaya'] },
+  { key: 'melocoton', name: 'Melocotón', emoji: '🍑', category: 'fruta', keywords: ['melocoton', 'melocotón', 'nectarina', 'albaricoque', 'paraguayo'] },
+  { key: 'ciruela', name: 'Ciruela / cereza', emoji: '🍒', category: 'fruta', keywords: ['ciruela', 'cereza'] },
+  { key: 'arandano', name: 'Arándanos / frambuesa', emoji: '🫐', category: 'fruta', keywords: ['arandano', 'arándano', 'frambuesa', 'mora'] },
+  { key: 'coco', name: 'Coco', emoji: '🥥', category: 'fruta', keywords: ['coco'] },
+
+  // Cereales, pan y masas (ampliación)
+  { key: 'cereales', name: 'Cereales de desayuno', emoji: '🥣', category: 'cereal', keywords: ['cereales', 'corn flakes', 'muesli', 'granola', 'all bran'] },
+  { key: 'tostada', name: 'Tostadas / biscotes', emoji: '🍞', category: 'cereal', keywords: ['tostada', 'biscote', 'pan tostado', 'picos', 'colines', 'regaña'] },
+  { key: 'pizza_base', name: 'Pizza / masa', emoji: '🍕', category: 'cereal', keywords: ['pizza', 'masa', 'hojaldre', 'empanadilla', 'empanada', 'base pizza'] },
+  { key: 'noodles', name: 'Noodles / fideos asiáticos', emoji: '🍜', category: 'cereal', keywords: ['noodles', 'ramen', 'yakisoba', 'fideos chinos'] },
+
+  // Legumbres y proteína vegetal (ampliación)
+  { key: 'tofu', name: 'Tofu / soja', emoji: '🧈', category: 'legumbre', keywords: ['tofu', 'soja texturizada', 'edamame', 'tempeh', 'seitan'] },
+
+  // Bebidas
+  { key: 'agua', name: 'Agua', emoji: '💧', category: 'bebida', keywords: ['agua', 'agua mineral'], staple: true },
+  { key: 'refresco', name: 'Refresco', emoji: '🥤', category: 'bebida', keywords: ['refresco', 'cola', 'coca', 'fanta', 'sprite', 'nestea', 'aquarius', 'tonica', 'gaseosa', 'bitter', 'kas'] },
+  { key: 'zumo', name: 'Zumo', emoji: '🧃', category: 'bebida', keywords: ['zumo', 'nectar', 'mosto'] },
+  { key: 'cerveza', name: 'Cerveza', emoji: '🍺', category: 'bebida', keywords: ['cerveza', 'birra', 'mahou', 'estrella', 'cruzcampo'] },
+  { key: 'vino', name: 'Vino', emoji: '🍷', category: 'bebida', keywords: ['vino', 'rioja', 'ribera', 'verdejo', 'lambrusco', 'cava'] },
+  { key: 'cafe', name: 'Café', emoji: '☕', category: 'bebida', keywords: ['cafe', 'café', 'nescafe', 'capsulas cafe'] },
+  { key: 'te', name: 'Té / infusiones', emoji: '🍵', category: 'bebida', keywords: ['infusion', 'manzanilla', 'poleo', 'te verde', 'te rojo'] },
+  { key: 'leche_vegetal', name: 'Bebida vegetal', emoji: '🥛', category: 'bebida', keywords: ['bebida de avena', 'bebida de soja', 'leche de almendra', 'bebida vegetal', 'horchata'] },
+
+  // Dulces, snacks y bollería
+  { key: 'galleta', name: 'Galletas', emoji: '🍪', category: 'dulce', keywords: ['galleta', 'maria', 'oreo', 'digestive'] },
+  { key: 'bolleria', name: 'Bollería', emoji: '🥐', category: 'dulce', keywords: ['croissant', 'napolitana', 'donut', 'magdalena', 'bizcocho', 'bolleria', 'palmera', 'ensaimada', 'sobao'] },
+  { key: 'helado', name: 'Helado', emoji: '🍦', category: 'dulce', keywords: ['helado', 'polo', 'cucurucho'] },
+  { key: 'chuches', name: 'Chuches / caramelos', emoji: '🍬', category: 'dulce', keywords: ['chuche', 'gominola', 'caramelo', 'regaliz', 'chicle'] },
+  { key: 'snack_salado', name: 'Patatas fritas / snacks', emoji: '🥔', category: 'dulce', keywords: ['patatas fritas', 'chips', 'doritos', 'nachos', 'ganchitos', 'cortezas', 'snack'] },
+  { key: 'mermelada', name: 'Mermelada', emoji: '🍯', category: 'despensa', keywords: ['mermelada', 'confitura'] },
+  { key: 'crema_cacahuete', name: 'Crema de cacahuete', emoji: '🥜', category: 'despensa', keywords: ['crema de cacahuete', 'mantequilla de cacahuete', 'crema de frutos secos'] },
+
+  // Despensa y salsas (ampliación)
+  { key: 'salsas', name: 'Salsas', emoji: '🥫', category: 'despensa', keywords: ['mayonesa', 'ketchup', 'mostaza', 'salsa cesar', 'salsa barbacoa', 'alioli', 'salsa rosa', 'pesto'] },
+  { key: 'vinagre', name: 'Vinagre', emoji: '🧴', category: 'despensa', keywords: ['vinagre'], staple: true },
+  { key: 'caldo', name: 'Caldo / pastillas', emoji: '🥣', category: 'despensa', keywords: ['caldo', 'avecrem', 'pastilla de caldo', 'fondo', 'fumet'] },
+  { key: 'levadura', name: 'Levadura', emoji: '🧫', category: 'despensa', keywords: ['levadura'], staple: true },
+  { key: 'conserva_legumbre', name: 'Conserva de legumbre', emoji: '🥫', category: 'legumbre', keywords: ['bote de garbanzos', 'bote de lentejas', 'bote de alubias', 'judias cocidas'] },
+  { key: 'gazpacho', name: 'Gazpacho / salmorejo', emoji: '🍅', category: 'verdura', keywords: ['gazpacho', 'salmorejo'] },
+  { key: 'hummus', name: 'Hummus / guacamole', emoji: '🥣', category: 'legumbre', keywords: ['hummus', 'guacamole', 'baba ganoush'] },
 ];
 
 // Índice rápido clave -> definición

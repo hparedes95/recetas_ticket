@@ -58,7 +58,7 @@ export interface Product {
   quantity?: number;
   unit?: string;
   /** De dónde salió el producto */
-  source: 'manual' | 'foto' | 'compra' | 'documento';
+  source: 'manual' | 'foto' | 'compra';
   addedAt: number;
 }
 

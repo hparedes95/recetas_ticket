@@ -16,7 +16,9 @@ export const CATEGORY_META: Record<
   cereal: { label: 'Cereales e hidratos', emoji: '🍚', order: 7 },
   legumbre: { label: 'Legumbres', emoji: '🫘', order: 8 },
   despensa: { label: 'Despensa', emoji: '🧂', order: 9 },
-  otro: { label: 'Otros', emoji: '🛒', order: 10 },
+  bebida: { label: 'Bebidas', emoji: '🥤', order: 10 },
+  dulce: { label: 'Dulces y snacks', emoji: '🍪', order: 11 },
+  otro: { label: 'Otros', emoji: '🛒', order: 12 },
 };
 
 export interface CatalogGroup {
