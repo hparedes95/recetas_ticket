@@ -46,8 +46,8 @@ export const INGREDIENTS: IngredientDef[] = [
   // Huevos y lácteos
   { key: 'huevo', name: 'Huevos', emoji: '🥚', category: 'huevo', keywords: ['huevo', 'huevos', 'docena'] },
   { key: 'leche', name: 'Leche', emoji: '🥛', category: 'lacteo', keywords: ['leche'], staple: true },
-  { key: 'yogur', name: 'Yogur', emoji: '🥛', category: 'lacteo', keywords: ['yogur', 'yogurt', 'griego'] },
-  { key: 'queso', name: 'Queso', emoji: '🧀', category: 'lacteo', keywords: ['queso', 'mozzarella', 'cheddar', 'parmesano', 'feta'] },
+  { key: 'yogur', name: 'Yogur', emoji: '🥛', category: 'lacteo', keywords: ['yogur', 'yogurt', 'griego', 'skyr', 'quark', 'bifidus', 'desnatado'] },
+  { key: 'queso', name: 'Queso', emoji: '🧀', category: 'lacteo', keywords: ['queso', 'mozzarella', 'cheddar', 'parmesano', 'feta', 'manchego', 'curado', 'semicurado', 'gouda', 'emmental', 'edam', 'brie', 'camembert', 'requeson', 'requesón', 'burgos', 'tetilla', 'quesito', 'philadelphia', 'lonchas'] },
   { key: 'nata', name: 'Nata', emoji: '🥛', category: 'lacteo', keywords: ['nata', 'crema'] },
   { key: 'mantequilla', name: 'Mantequilla', emoji: '🧈', category: 'lacteo', keywords: ['mantequilla'], staple: true },
 
@@ -77,8 +77,8 @@ export const INGREDIENTS: IngredientDef[] = [
 
   // Cereales / hidratos
   { key: 'arroz', name: 'Arroz', emoji: '🍚', category: 'cereal', keywords: ['arroz'] },
-  { key: 'pasta', name: 'Pasta', emoji: '🍝', category: 'cereal', keywords: ['pasta', 'macarron', 'espagueti', 'spaghetti', 'fideos', 'penne'] },
-  { key: 'pan', name: 'Pan', emoji: '🍞', category: 'cereal', keywords: ['pan', 'barra', 'baguette', 'molde'] },
+  { key: 'pasta', name: 'Pasta', emoji: '🍝', category: 'cereal', keywords: ['pasta', 'macarron', 'espagueti', 'spaghetti', 'fideos', 'penne', 'tallarin', 'tallarines', 'lasaña', 'lasagna', 'canelones', 'ravioli', 'tortellini', 'noquis', 'ñoquis', 'lazos', 'hélices', 'plumas'] },
+  { key: 'pan', name: 'Pan', emoji: '🍞', category: 'cereal', keywords: ['pan', 'barra', 'baguette', 'molde', 'chapata', 'pita', 'hamburguesa', 'integral', 'bao', 'rustico', 'gallego', 'payes'] },
   { key: 'avena', name: 'Avena', emoji: '🥣', category: 'cereal', keywords: ['avena', 'copos'] },
   { key: 'harina', name: 'Harina', emoji: '🌾', category: 'cereal', keywords: ['harina'], staple: true },
   { key: 'tortilla_wrap', name: 'Tortilla de trigo / wrap', emoji: '🫓', category: 'cereal', keywords: ['wrap', 'tortitas trigo', 'fajita', 'tortilla mexicana'] },
@@ -185,6 +185,23 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'conserva_legumbre', name: 'Conserva de legumbre', emoji: '🥫', category: 'legumbre', keywords: ['bote de garbanzos', 'bote de lentejas', 'bote de alubias', 'judias cocidas'] },
   { key: 'gazpacho', name: 'Gazpacho / salmorejo', emoji: '🍅', category: 'verdura', keywords: ['gazpacho', 'salmorejo'] },
   { key: 'hummus', name: 'Hummus / guacamole', emoji: '🥣', category: 'legumbre', keywords: ['hummus', 'guacamole', 'baba ganoush'] },
+
+  // Más productos (ampliación 2)
+  { key: 'boniato', name: 'Boniato', emoji: '🍠', category: 'verdura', keywords: ['boniato', 'batata'] },
+  { key: 'remolacha', name: 'Remolacha', emoji: '🫜', category: 'verdura', keywords: ['remolacha'] },
+  { key: 'nabo', name: 'Nabo / chirivía', emoji: '🥔', category: 'verdura', keywords: ['nabo', 'chirivia', 'chirivía'] },
+  { key: 'endivia', name: 'Endivias / rúcula', emoji: '🥬', category: 'verdura', keywords: ['endivia', 'escarola', 'berros', 'rucula', 'rúcula', 'canonigos', 'canónigos'] },
+  { key: 'granada', name: 'Granada / higos', emoji: '🍇', category: 'fruta', keywords: ['granada', 'higo', 'caqui', 'nispero', 'níspero', 'membrillo', 'chirimoya'] },
+  { key: 'limon_lima', name: 'Lima', emoji: '🍈', category: 'fruta', keywords: ['lima'] },
+  { key: 'rape', name: 'Rape / pez espada', emoji: '🐟', category: 'pescado', keywords: ['rape', 'rodaballo', 'emperador', 'pez espada', 'mero'] },
+  { key: 'jurel', name: 'Jurel / melva', emoji: '🐟', category: 'pescado', keywords: ['jurel', 'melva', 'verdel'] },
+  { key: 'semillas', name: 'Semillas', emoji: '🌰', category: 'despensa', keywords: ['semillas', 'chia', 'chía', 'lino', 'sesamo', 'sésamo'] },
+  { key: 'margarina', name: 'Margarina', emoji: '🧈', category: 'lacteo', keywords: ['margarina'], staple: true },
+  { key: 'polenta', name: 'Sémola / polenta', emoji: '🌽', category: 'cereal', keywords: ['polenta', 'semola', 'sémola', 'bulgur', 'mijo'] },
+  { key: 'encurtidos', name: 'Encurtidos', emoji: '🥒', category: 'despensa', keywords: ['encurtido', 'pepinillo', 'banderilla', 'cebolleta encurtida'] },
+  { key: 'tomate_seco', name: 'Tomate seco / conserva', emoji: '🍅', category: 'despensa', keywords: ['tomate seco', 'tomate en conserva', 'tomate pera lata'] },
+  { key: 'pan_rallado', name: 'Pan rallado', emoji: '🍞', category: 'cereal', keywords: ['pan rallado', 'panko'] },
+  { key: 'chocolate_untar', name: 'Crema de cacao', emoji: '🍫', category: 'dulce', keywords: ['nutella', 'crema de cacao', 'nocilla'] },
 ];
 
 // Índice rápido clave -> definición

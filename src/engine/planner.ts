@@ -181,26 +181,49 @@ export function assembleWeek(
   const meals: PlannedMeal[] = [];
   const lastUsed: Partial<Record<MealSlot, string>> = {};
   const usage = new Map<string, number>(); // veces que se ha usado cada receta en la semana
-  const VARIETY_PENALTY = 55; // kcal-equivalente por repetición: fomenta variedad
+  // Penalización alta por repetir: la variedad manda y el factor de ración
+  // (0.85–1.2) cierra el hueco de calorías que deje la selección.
+  const VARIETY_PENALTY = 170;
 
   for (let day = 0; day < DAYS; day++) {
     const chosen: Partial<Record<MealSlot, ScoredRecipe>> = {};
+    // Ids ya elegidos en OTRAS comidas de HOY (para no repetir comida = cena)
+    const takenToday = (slot: MealSlot): Set<string> => {
+      const s = new Set<string>();
+      for (const other of slots) {
+        if (other === slot) continue;
+        const id = chosen[other]?.recipe.id;
+        if (id) s.add(id);
+      }
+      return s;
+    };
 
-    // Semilla con rotación para variedad, evitando repetir la receta del día anterior
+    // Semilla con rotación: variedad, sin repetir la de ayer ni otra comida de hoy
     for (const slot of slots) {
       const pool = poolsBySlot[slot];
       if (!pool || pool.length === 0) continue;
-      let idx = (hashString(slot) + day) % pool.length;
-      if (pool.length > 1 && pool[idx].recipe.id === lastUsed[slot]) idx = (idx + 1) % pool.length;
-      chosen[slot] = pool[idx];
+      const taken = takenToday(slot);
+      const start = (hashString(slot) + day) % pool.length;
+      let pick: ScoredRecipe | undefined;
+      for (let i = 0; i < pool.length; i++) {
+        const cand = pool[(start + i) % pool.length];
+        if (taken.has(cand.recipe.id)) continue;
+        if (pool.length > 1 && cand.recipe.id === lastUsed[slot]) continue;
+        pick = cand;
+        break;
+      }
+      if (!pick) pick = pool.find((c) => !taken.has(c.recipe.id)) ?? pool[start];
+      chosen[slot] = pick;
     }
 
-    // Ajuste voraz: acercarse al objetivo de kcal del día, penalizando repetir recetas
+    // Ajuste voraz: acercarse al objetivo de kcal del día, penalizando repetir
+    // recetas y prohibiendo repetir dentro del mismo día
     if (target && target > 0) {
       for (let pass = 0; pass < 3; pass++) {
         for (const slot of slots) {
           const pool = poolsBySlot[slot];
           if (!pool || pool.length === 0) continue;
+          const taken = takenToday(slot);
           const others = slots.reduce(
             (s, sl) => s + (sl === slot ? 0 : chosen[sl]?.recipe.macros.kcal ?? 0),
             0,
@@ -211,6 +234,7 @@ export function assembleWeek(
           let best = chosen[slot]!;
           let bestCost = cost(best);
           for (const cand of pool) {
+            if (taken.has(cand.recipe.id)) continue; // no repetir en el mismo día
             const c = cost(cand);
             if (c < bestCost - 1) {
               best = cand;
@@ -259,7 +283,7 @@ export function generatePlanForGoal(
   // Un buen surtido de candidatos por comida (los mejores por objetivo/macros/despensa)
   const poolsBySlot: Partial<Record<MealSlot, ScoredRecipe[]>> = {};
   for (const slot of slots) {
-    poolsBySlot[slot] = candidatesForSlot(slot, availableKeys, goal, prefs, targets).slice(0, 10);
+    poolsBySlot[slot] = candidatesForSlot(slot, availableKeys, goal, prefs, targets).slice(0, 14);
   }
 
   const meals = assembleWeek(slots, poolsBySlot, prefs.calorieTarget ?? null);
