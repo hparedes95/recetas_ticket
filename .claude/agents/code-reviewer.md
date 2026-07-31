@@ -18,5 +18,9 @@ Reglas:
 - Empieza SIEMPRE por el hallazgo de mayor severidad.
 - Sé concreto: nombra archivo y línea, y muestra el fix cuando aplique.
 - Si el código está bien, dilo en una línea. No inventes problemas.
-- Para Python: revisa manejo de excepciones, uso de context managers,
-  inputs sin validar y secretos fuera del código.
+- Para esta app (Expo + React Native + TypeScript): revisa promesas sin
+  `await` o sin manejo de error, `any` sin justificar, hooks con dependencias
+  mal declaradas, la API key de Claude nunca en logs ni en el repo (solo en
+  Preferences del dispositivo), llamadas `fetch` con timeouts/errores tratados,
+  código nativo que no bundlee en Hermes, texto de cara al usuario en español
+  y claves de ingrediente de las recetas que existan en `INGREDIENTS`.
