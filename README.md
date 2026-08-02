@@ -49,6 +49,39 @@ npx expo start --web
 
 ---
 
+## 🌐 Usarla en el móvil sin ordenador (web / PWA en Vercel)
+
+Puedes publicar la **versión web** de la app en **Vercel** y usarla en el iPhone
+como una app instalada, sin necesidad del ordenador ni de Expo Go.
+
+> **Ojo:** Vercel sirve webs, no apps nativas. Esto **no** es una instalación
+> desde la App Store, sino una **PWA**: abres una URL en Safari y la añades a la
+> pantalla de inicio. La cámara nativa no está disponible en web (la foto del
+> ticket usa el selector de archivos del navegador); el resto funciona igual.
+
+**Publicar (una sola vez):**
+
+1. Sube el repo a GitHub (esta rama ya lo está).
+2. Entra en <https://vercel.com>, **Add New → Project**, e **importa** el repositorio.
+3. Vercel detecta la config de [`vercel.json`](./vercel.json) automáticamente
+   (build `npm run build`, salida `dist/`). Pulsa **Deploy**.
+4. En 1–2 min tendrás una URL tipo `https://recetas-ticket.vercel.app`.
+
+Cada `git push` a la rama vuelve a desplegar solo.
+
+**Instalar en el iPhone:**
+
+1. Abre la URL de Vercel en **Safari**.
+2. Toca **Compartir** → **Añadir a pantalla de inicio**.
+3. Se crea el icono “Recetas”; ábrelo y se ejecuta a pantalla completa como una app.
+
+**Compilar la web en local** (para probar antes de subir):
+```bash
+npm run build     # genera dist/ (export web + metadatos PWA)
+```
+
+---
+
 ## 🧱 Estructura del proyecto
 
 ```
