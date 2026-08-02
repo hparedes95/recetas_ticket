@@ -1,11 +1,12 @@
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Screen, Title, Subtitle, Card, AppButton, EmptyState, ProgressBar } from '../components/ui';
 import { colors, spacing, font, radius, goalMeta } from '../theme';
 import { useApp } from '../context/AppContext';
+import { notify } from '../utils/dialog';
 import { MealPlan } from '../types';
 import { RootStackParamList } from '../navigation/types';
 
@@ -25,7 +26,7 @@ export default function PlansScreen() {
 
   const runAI = async () => {
     if (!preferences.useAI || !preferences.aiApiKey?.trim()) {
-      Alert.alert(
+      notify(
         'Activa la IA',
         'Ve a Ajustes → “Recetas con IA” para activarla y añadir tu clave de Anthropic.',
       );
@@ -35,7 +36,7 @@ export default function PlansScreen() {
       const plan = await generateAIPlan(preferences.defaultGoal);
       nav.navigate('PlanDetail', { planId: plan.id });
     } catch (e) {
-      Alert.alert('No se pudo generar', e instanceof Error ? e.message : 'Inténtalo de nuevo.');
+      notify('No se pudo generar', e instanceof Error ? e.message : 'Inténtalo de nuevo.');
     }
   };
 

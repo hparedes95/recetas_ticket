@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Screen, Title, Card, AppButton, EmptyState, Badge, SectionTitle } from '../components/ui';
 import { colors, spacing, font, radius } from '../theme';
 import { useApp } from '../context/AppContext';
+import { confirmAction } from '../utils/dialog';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { CATEGORY_META } from '../data/catalog';
 import { Product } from '../types';
@@ -63,10 +64,13 @@ export default function PantryScreen() {
   }
 
   const confirmClear = () =>
-    Alert.alert('Vaciar despensa', '¿Seguro que quieres eliminar todos los productos?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Vaciar', style: 'destructive', onPress: clearPantry },
-    ]);
+    confirmAction({
+      title: 'Vaciar despensa',
+      message: '¿Seguro que quieres eliminar todos los productos?',
+      confirmText: 'Vaciar',
+      destructive: true,
+      onConfirm: clearPantry,
+    });
 
   return (
     <Screen scroll>

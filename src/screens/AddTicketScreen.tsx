@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import { colors, spacing, font, radius } from '../theme';
 import { useApp } from '../context/AppContext';
 import { parseTicketText, SAMPLE_TICKET } from '../engine/ticketParser';
 import { parseTicketWithAI } from '../engine/aiTicket';
+import { notify } from '../utils/dialog';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { Product } from '../types';
 import { RootStackParamList } from '../navigation/types';
@@ -31,7 +32,7 @@ export default function AddTicketScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permiso necesario', 'Necesitamos acceso para añadir la foto del ticket.');
+        notify('Permiso necesario', 'Necesitamos acceso para añadir la foto del ticket.');
         return;
       }
       const result = fromCamera
@@ -41,14 +42,14 @@ export default function AddTicketScreen() {
         setImageUri(result.assets[0].uri);
       }
     } catch (e) {
-      Alert.alert('Ups', 'No se pudo abrir la cámara o galería en este dispositivo.');
+      notify('Ups', 'No se pudo abrir la cámara o galería en este dispositivo.');
     }
   };
 
   const analyze = async () => {
     const raw = text.trim();
     if (!raw) {
-      Alert.alert(
+      notify(
         'Añade el ticket',
         'Escribe o pega el contenido del ticket, un producto por línea. También puedes usar el ejemplo.',
       );
@@ -64,10 +65,10 @@ export default function AddTicketScreen() {
           setParsed(products);
           return;
         }
-        Alert.alert('Sin productos', 'La IA no encontró productos de alimentación en el texto.');
+        notify('Sin productos', 'La IA no encontró productos de alimentación en el texto.');
         return;
       } catch (e) {
-        Alert.alert(
+        notify(
           'IA no disponible',
           `${e instanceof Error ? e.message : 'Error con la IA.'} Uso el reconocimiento local.`,
         );
@@ -79,7 +80,7 @@ export default function AddTicketScreen() {
 
     const products = parseTicketText(raw, imageUri ? 'foto' : 'manual');
     if (products.length === 0) {
-      Alert.alert(
+      notify(
         'No reconocí productos',
         'Escribe o pega el contenido del ticket, un producto por línea.',
       );
@@ -91,9 +92,9 @@ export default function AddTicketScreen() {
   const confirm = () => {
     if (!parsed) return;
     addProducts(parsed);
-    Alert.alert('¡Listo!', `Se añadieron ${parsed.length} productos a tu despensa.`, [
-      { text: 'Genial', onPress: () => nav.navigate('Main', { screen: 'Despensa' }) },
-    ]);
+    notify('¡Listo!', `Se añadieron ${parsed.length} productos a tu despensa.`, () =>
+      nav.navigate('Main', { screen: 'Despensa' }),
+    );
   };
 
   const removeFromParsed = (id: string) =>

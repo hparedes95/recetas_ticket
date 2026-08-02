@@ -1,11 +1,12 @@
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Screen, Title, Subtitle, Card, AppButton, EmptyState, Badge } from '../components/ui';
 import { colors, spacing, font, radius, goalMeta } from '../theme';
 import { useApp } from '../context/AppContext';
+import { confirmAction, notify } from '../utils/dialog';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { RootStackParamList } from '../navigation/types';
 
@@ -57,7 +58,7 @@ export default function ShoppingScreen() {
   const confirmBought = () => {
     const n = addBoughtToPantry();
     if (n > 0) {
-      Alert.alert('¡Añadido!', `${n} producto${n > 1 ? 's' : ''} pasaron a tu despensa.`);
+      notify('¡Añadido!', `${n} producto${n > 1 ? 's' : ''} pasaron a tu despensa.`);
     }
   };
 
@@ -124,10 +125,13 @@ export default function ShoppingScreen() {
           full={false}
           style={{ flex: 1 }}
           onPress={() =>
-            Alert.alert('Vaciar lista', '¿Vaciar la lista de la compra?', [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Vaciar', style: 'destructive', onPress: clearShopping },
-            ])
+            confirmAction({
+              title: 'Vaciar lista',
+              message: '¿Vaciar la lista de la compra?',
+              confirmText: 'Vaciar',
+              destructive: true,
+              onConfirm: clearShopping,
+            })
           }
         />
       </View>

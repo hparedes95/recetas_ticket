@@ -1,9 +1,10 @@
 import React from 'react';
-import { Alert, Linking, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { Screen, Title, Subtitle, Card, AppButton, Chip, SectionTitle } from '../components/ui';
 import { colors, spacing, font, goalMeta, dietTagMeta, slotMeta } from '../theme';
 import { useApp } from '../context/AppContext';
+import { notify } from '../utils/dialog';
 import { DietGoal, DietTag, MealSlot } from '../types';
 import { TargetPicker } from '../components/TargetPicker';
 
@@ -135,7 +136,7 @@ export default function PreferencesScreen() {
         icon="🔄"
         onPress={() => {
           regeneratePlans();
-          Alert.alert('Planes actualizados', 'Hemos vuelto a generar tus planes con las nuevas preferencias.');
+          notify('Planes actualizados', 'Hemos vuelto a generar tus planes con las nuevas preferencias.');
         }}
       />
 
