@@ -1,23 +1,23 @@
 name: Publicar web en GitHub Pages
 
+# Reconstruye la web en cada push a la rama y actualiza la rama gh-pages,
+# que es la que GitHub Pages sirve. Usa el GITHUB_TOKEN (permiso de escritura
+# de contenido), sin necesitar permisos de administración de Pages.
+
 on:
   push:
     branches: ["claude/recipe-app-shopping-ticket-ng8q5o"]
   workflow_dispatch:
 
-# Permisos que necesita el despliegue de Pages.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Un despliegue a la vez; no cancelar el que esté en curso.
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "deploy-gh-pages"
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,32 +32,22 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Configurar Pages (auto-activación)
-        id: pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Compilar web (subruta = ruta base de Pages)
+      - name: Compilar web (subruta /recetas_ticket)
         run: npm run build
         env:
           EXPO_OFFLINE: "1"
-          # base_path lo calcula configure-pages a partir del nombre del repo
-          # (p. ej. /recetas_ticket); así el bundle y los assets apuntan bien.
-          APP_BASE_URL: ${{ steps.pages.outputs.base_path }}
+          APP_BASE_URL: "/recetas_ticket"
 
-      - name: Subir artefacto
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Desplegar en GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publicar en la rama gh-pages
+        run: |
+          cd dist
+          touch .nojekyll
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Deploy web ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
