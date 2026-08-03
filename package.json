@@ -19,7 +19,12 @@
     "react-native-web": "~0.21.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "~54.0.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~54.0.0",
     "typescript": "~5.9.2"
   },
   "scripts": {
@@ -27,7 +32,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build": "expo export --platform web && node scripts/pwa-postbuild.js"
+    "build": "expo export --platform web && node scripts/pwa-postbuild.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "private": true
 }
