@@ -1237,7 +1237,7 @@ export const RECIPES: Recipe[] = [
     tags: ['vegetariano', 'sin_frutos_secos'],
     ingredients: [
       { key: 'queso_batido', name: 'Queso batido / cottage', quantity: 120, unit: 'g' },
-      { key: 'huevo', name: 'Claras de huevo', quantity: 3, unit: 'ud' },
+      { key: 'huevo', name: 'Huevos', quantity: 3, unit: 'ud' },
       { key: 'avena', name: 'Avena', quantity: 40, unit: 'g' },
       { key: 'especias', name: 'Canela', staple: true },
     ],
@@ -1325,7 +1325,7 @@ export const RECIPES: Recipe[] = [
     goals: ['proteico', 'saludable'],
     tags: ['sin_frutos_secos'],
     ingredients: [
-      { key: 'huevo', name: 'Huevo + 4 claras', quantity: 1, unit: 'ud' },
+      { key: 'huevo', name: 'Huevos', quantity: 2, unit: 'ud' },
       { key: 'jamon', name: 'Jamón magro', quantity: 50, unit: 'g' },
       { key: 'tortilla_wrap', name: 'Tortilla integral', quantity: 1, unit: 'ud' },
       { key: 'queso', name: 'Queso rallado', quantity: 30, unit: 'g' },
@@ -1347,7 +1347,7 @@ export const RECIPES: Recipe[] = [
     goals: ['saludable', 'bajar_calorias'],
     tags: ['vegano', 'vegetariano', 'sin_gluten', 'sin_lactosa'],
     ingredients: [
-      { key: 'semillas', name: 'Semillas de chía', quantity: 30, unit: 'g' },
+      { key: 'chia', name: 'Semillas de chía', quantity: 30, unit: 'g' },
       { key: 'leche_vegetal', name: 'Bebida vegetal', quantity: 200, unit: 'ml' },
       { key: 'arandano', name: 'Arándanos', quantity: 60, unit: 'g' },
       { key: 'platano', name: 'Plátano', quantity: 0.5, unit: 'ud' },
@@ -1485,7 +1485,7 @@ export const RECIPES: Recipe[] = [
     goals: ['proteico', 'bajar_calorias'],
     tags: ['sin_gluten', 'sin_lactosa', 'sin_frutos_secos'],
     ingredients: [
-      { key: 'huevo', name: 'Huevo + claras', quantity: 3, unit: 'ud' },
+      { key: 'huevo', name: 'Huevos', quantity: 3, unit: 'ud' },
       { key: 'pollo', name: 'Pollo cocido', quantity: 80, unit: 'g' },
       { key: 'champinon', name: 'Champiñones', quantity: 80, unit: 'g' },
       { key: 'aguacate', name: 'Aguacate', quantity: 0.25, unit: 'ud' },
@@ -1580,7 +1580,7 @@ export const RECIPES: Recipe[] = [
     ingredients: [
       { key: 'queso_batido', name: 'Queso batido / cottage', quantity: 150, unit: 'g' },
       { key: 'arandano', name: 'Arándanos', quantity: 60, unit: 'g' },
-      { key: 'semillas', name: 'Semillas de chía', quantity: 10, unit: 'g' },
+      { key: 'chia', name: 'Semillas de chía', quantity: 10, unit: 'g' },
     ],
     steps: [
       'Pon el queso batido en un bol.',
@@ -1720,7 +1720,7 @@ export const RECIPES: Recipe[] = [
     ingredients: [
       { key: 'proteina_polvo', name: 'Proteína en polvo', quantity: 30, unit: 'g' },
       { key: 'arandano', name: 'Arándanos / frambuesa', quantity: 80, unit: 'g' },
-      { key: 'semillas', name: 'Lino molido', quantity: 15, unit: 'g' },
+      { key: 'lino', name: 'Lino molido', quantity: 15, unit: 'g' },
       { key: 'leche_vegetal', name: 'Bebida vegetal', quantity: 250, unit: 'ml' },
     ],
     steps: ['Tritura la proteína con las bayas, el lino y la bebida vegetal.', 'Sirve frío.'],
