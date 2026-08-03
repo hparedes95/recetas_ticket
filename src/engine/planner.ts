@@ -151,10 +151,10 @@ function candidatesForSlot(
   goal: DietGoal,
   prefs: Preferences,
   targets: Targets,
+  extraRecipes: Recipe[] = [],
 ): ScoredRecipe[] {
-  return RECIPES.filter(
-    (r) => r.slot.includes(slot) && passesRestrictions(r, prefs) && !hasDislike(r, prefs),
-  )
+  return [...RECIPES, ...extraRecipes]
+    .filter((r) => r.slot.includes(slot) && passesRestrictions(r, prefs) && !hasDislike(r, prefs))
     .map((r) => scoreRecipe(r, availableKeys, goal, targets.slotKcal[slot], targets.macroSplit))
     .sort((a, b) => b.score - a.score);
 }
@@ -270,11 +270,14 @@ export function assembleWeek(
   return meals;
 }
 
-/** Genera un plan semanal para un objetivo concreto */
+/** Genera un plan semanal para un objetivo concreto.
+ *  `extraRecipes` permite inyectar recetas generadas por el motor combinatorio
+ *  como candidatas adicionales (además del catálogo), sin cambiar el resto. */
 export function generatePlanForGoal(
   pantry: Product[],
   prefs: Preferences,
   goal: DietGoal,
+  extraRecipes: Recipe[] = [],
 ): MealPlan {
   const availableKeys = new Set(pantry.map((p) => p.ingredientKey));
   const slots = prefs.mealsPerDay.length > 0 ? prefs.mealsPerDay : (['comida', 'cena'] as MealSlot[]);
@@ -283,13 +286,15 @@ export function generatePlanForGoal(
   // Un buen surtido de candidatos por comida (los mejores por objetivo/macros/despensa)
   const poolsBySlot: Partial<Record<MealSlot, ScoredRecipe[]>> = {};
   for (const slot of slots) {
-    poolsBySlot[slot] = candidatesForSlot(slot, availableKeys, goal, prefs, targets).slice(0, 14);
+    poolsBySlot[slot] = candidatesForSlot(slot, availableKeys, goal, prefs, targets, extraRecipes).slice(0, 14);
   }
 
   const meals = assembleWeek(slots, poolsBySlot, prefs.calorieTarget ?? null);
 
-  const missing = computeMissing(meals, availableKeys);
-  const avgDailyMacros = computeAvgDailyMacros(meals);
+  const recipeMap: Record<string, Recipe> = { ...RECIPE_BY_ID };
+  for (const r of extraRecipes) recipeMap[r.id] = r;
+  const missing = computeMissing(meals, availableKeys, recipeMap);
+  const avgDailyMacros = computeAvgDailyMacros(meals, recipeMap);
 
   const meta = goalMeta[goal];
   return {
@@ -356,9 +361,14 @@ export function planGoalsFor(prefs: Preferences): DietGoal[] {
   return [preferred, ...all.filter((g) => g !== preferred)];
 }
 
-/** Genera todas las opciones de plan (una por objetivo) */
-export function generatePlans(pantry: Product[], prefs: Preferences): MealPlan[] {
-  return planGoalsFor(prefs).map((goal) => generatePlanForGoal(pantry, prefs, goal));
+/** Genera todas las opciones de plan (una por objetivo).
+ *  `extraRecipes` (recetas generadas) se añaden al catálogo como candidatas. */
+export function generatePlans(
+  pantry: Product[],
+  prefs: Preferences,
+  extraRecipes: Recipe[] = [],
+): MealPlan[] {
+  return planGoalsFor(prefs).map((goal) => generatePlanForGoal(pantry, prefs, goal, extraRecipes));
 }
 
 /**
