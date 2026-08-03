@@ -94,6 +94,11 @@ export interface Recipe {
   /** Raciones base de la receta */
   servings: number;
   emoji: string;
+  /** Técnica de cocción principal (plancha, horno, guiso…). Presente en recetas
+   *  generadas; en el catálogo puede inferirse de los pasos. */
+  technique?: string;
+  /** true si la receta la generó el motor combinatorio (no es del catálogo). */
+  generated?: boolean;
 }
 
 /** Una comida concreta dentro del plan */
