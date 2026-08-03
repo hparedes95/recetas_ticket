@@ -212,6 +212,12 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'seitan', name: 'Seitán', emoji: '🌾', category: 'legumbre', keywords: ['seitan', 'seitán'] },
   { key: 'edamame', name: 'Edamame', emoji: '🫛', category: 'legumbre', keywords: ['edamame', 'soja verde'] },
   { key: 'cebada', name: 'Cebada', emoji: '🌾', category: 'cereal', keywords: ['cebada'] },
+
+  // Mediterráneo / cocina española (ampliación investigación dieta mediterránea)
+  { key: 'azafran', name: 'Azafrán / colorante', emoji: '🌾', category: 'despensa', keywords: ['azafran', 'azafrán', 'colorante alimentario'], staple: true },
+  { key: 'perejil', name: 'Perejil / cilantro', emoji: '🌿', category: 'verdura', keywords: ['perejil', 'cilantro', 'julivert'], staple: true },
+  { key: 'laurel', name: 'Laurel', emoji: '🌿', category: 'despensa', keywords: ['laurel'], staple: true },
+  { key: 'pimiento_choricero', name: 'Pimiento choricero / ñora', emoji: '🌶️', category: 'despensa', keywords: ['choricero', 'ñora', 'carne de pimiento'] },
 ];
 
 // Índice rápido clave -> definición
