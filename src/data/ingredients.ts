@@ -156,7 +156,7 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'noodles', name: 'Noodles / fideos asiáticos', emoji: '🍜', category: 'cereal', keywords: ['noodles', 'ramen', 'yakisoba', 'fideos chinos'] },
 
   // Legumbres y proteína vegetal (ampliación)
-  { key: 'tofu', name: 'Tofu / soja', emoji: '🧈', category: 'legumbre', keywords: ['tofu', 'soja texturizada', 'edamame', 'tempeh', 'seitan'] },
+  { key: 'tofu', name: 'Tofu / soja', emoji: '🧈', category: 'legumbre', keywords: ['tofu', 'soja texturizada'] },
 
   // Bebidas
   { key: 'agua', name: 'Agua', emoji: '💧', category: 'bebida', keywords: ['agua', 'agua mineral'], staple: true },
@@ -202,6 +202,14 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'tomate_seco', name: 'Tomate seco / conserva', emoji: '🍅', category: 'despensa', keywords: ['tomate seco', 'tomate en conserva', 'tomate pera lata'] },
   { key: 'pan_rallado', name: 'Pan rallado', emoji: '🍞', category: 'cereal', keywords: ['pan rallado', 'panko'] },
   { key: 'chocolate_untar', name: 'Crema de cacao', emoji: '🍫', category: 'dulce', keywords: ['nutella', 'crema de cacao', 'nocilla'] },
+
+  // Alta proteína y saludables (ampliación investigación nutricional)
+  { key: 'queso_batido', name: 'Queso batido / cottage', emoji: '🧀', category: 'lacteo', keywords: ['queso batido', 'cottage', 'queso cottage', 'tarrina de queso batido'] },
+  { key: 'proteina_polvo', name: 'Proteína en polvo', emoji: '🥤', category: 'despensa', keywords: ['proteina en polvo', 'proteína en polvo', 'whey', 'isolate', 'proteina de suero', 'caseina', 'caseína'] },
+  { key: 'tempeh', name: 'Tempeh', emoji: '🧆', category: 'legumbre', keywords: ['tempeh'] },
+  { key: 'seitan', name: 'Seitán', emoji: '🌾', category: 'legumbre', keywords: ['seitan', 'seitán'] },
+  { key: 'edamame', name: 'Edamame', emoji: '🫛', category: 'legumbre', keywords: ['edamame', 'soja verde'] },
+  { key: 'cebada', name: 'Cebada', emoji: '🌾', category: 'cereal', keywords: ['cebada'] },
 ];
 
 // Índice rápido clave -> definición
