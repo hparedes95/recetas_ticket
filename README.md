@@ -96,7 +96,13 @@ src/
     catalog.ts              Catálogo agrupado para el modo compra
   engine/
     ticketParser.ts         Convierte texto/ticket en productos reconocidos
-    planner.ts              Motor que genera los planes semanales
+    normalize.ts            Canonicalización del ticket (alias, singular/plural)
+    generator.ts            Motor generativo por plantillas culinarias
+    suggest.ts              Orquestador de sugerencias (catálogo + generadas, MMR)
+    history.ts / mmr.ts     Anti-repetición y diversidad de lote
+    config.ts               Pesos y parámetros del motor (ajustables)
+    planner.ts              Monta los planes semanales
+    __tests__/              Tests del motor (jest-expo)
   context/
     AppContext.tsx          Estado global + persistencia (AsyncStorage)
   components/
@@ -116,6 +122,48 @@ src/
 3. Si has fijado un **objetivo de calorías**, el motor **elige la combinación de recetas** cuyo total del día se acerca más a tu objetivo (búsqueda voraz por comida), con un ajuste de ración mínimo y natural (0.85–1.2). No infla raciones para "cuadrar" las calorías.
 4. Se monta la semana (7 días × comidas elegidas) y se calcula **lo que falta comprar**.
 
+### 🍳 Motor generativo por plantillas
+
+Además del catálogo curado, el motor **genera recetas nuevas** combinando
+plantillas culinarias (no elige de una lista cerrada), así hay variedad casi
+infinita y no repetitiva. Arquitectura (`src/engine/` + `src/data/`):
+
+| Módulo | Rol |
+|---|---|
+| `data/aliases.ts` + `engine/normalize.ts` | **Canonicalización**: normaliza el ticket (sin acentos, singular/plural, sinónimos regionales/catalán/inglés/comerciales) a una clave de ingrediente. Punto de entrada único. |
+| `data/culinary.ts` | **Metadatos culinarios** del ingrediente: rol (base/principal/aromático/ácido/grasa), técnicas compatibles, perfil de sabor, afinidades, `es_despensa`. Derivados por categoría + overrides. |
+| `data/nutrition.ts` | **Nutrición por-100 g** (USDA/BEDCA) + conversión de unidades → recalcula los macros de las recetas generadas sumando desde la BD. |
+| `engine/generator.ts` | **Generación**: instancia plantillas (`base + proteína + verdura + aromático + ácido/grasa + técnica`) con ingredientes reales, filtrando por técnicas compatibles y afinidades; escribe pasos por técnica con tiempos/Tª reales. Incluye `isFeasible` (validador que rechaza recetas con ingredientes inexistentes). |
+| `engine/history.ts` | **Anti-repetición**: firma estable de receta, penalización por recencia (decaimiento exponencial sobre receta/proteína/técnica) y cooldown duro. |
+| `engine/mmr.ts` | **Diversidad de lote** por MMR (relevancia − similitud), no top-N. |
+| `engine/suggest.ts` | **Orquestador** `suggestRecipes()`: junta catálogo + generadas, puntúa, respeta cooldown, elige por MMR y expone cobertura rica (usa-del-ticket / básicos / faltan) con **sustituciones** de misma categoría+rol. |
+| `engine/config.ts` | **Configuración única** (pesos y parámetros). |
+| `engine/rng.ts` | RNG con semilla (reproducible en tests). |
+
+Criterios que garantizan los tests (`npm test`): 0 recetas con ingrediente
+inexistente, ninguna receta repetida en <30 generaciones, ninguna proteína >20 %
+del total, ≤1 receta por técnica/proteína en el lote y <150 ms por lote.
+
+#### Ajustar los pesos del scoring
+Todo vive en `src/engine/config.ts` (`DEFAULT_CONFIG`), sin tocar la lógica:
+```
+score = w.coverage·cobertura + w.affinity·afinidad + w.novelty·novedad
+      − w.repetition·penalización_recencia − w.missing·nº_faltantes
+```
+Cambia `weights` (coverage/affinity/novelty/repetition/missing), los parámetros
+de `antiRepeat` (ventana, `decay`, cooldown por receta/proteína) o `mmrLambda`
+(0 = solo relevancia, 1 = solo diversidad).
+
+#### Añadir una plantilla de receta
+En `src/engine/generator.ts`, añade un objeto a `TEMPLATES` con: `technique`
+(debe estar en `tecnicas_compatibles` de las proteínas que la usarán),
+`needsBase`, `vegCount`, `emoji`, `timeMinutes`, `buildName(protein, veg, base)`
+y `buildSteps({protein, veg, base, aromatic, acid})` (pasos concretos con tiempos
+reales). El generador la instanciará con los ingredientes del ticket y validará
+factibilidad automáticamente. Para mejorar las combinaciones, añade afinidades en
+`AFFINITIES` (`src/data/culinary.ts`) y, si es un ingrediente nuevo, su nutrición
+en `src/data/nutrition.ts`.
+
 ### 🤖 Recetas con IA (opcional)
 
 Con el recetario local, las calorías son exactas hasta cierto punto (el catálogo es limitado). Para dar **justo** en objetivos altos o muy específicos, la app puede **crear recetas a medida con IA** (API de Claude):
@@ -134,6 +182,7 @@ npm install          # instala dependencias
 npx expo start       # desarrollo (QR para Expo Go)
 npx expo start --web # vista en navegador
 npx tsc --noEmit     # comprobación de tipos
+npm test             # tests del motor (jest-expo)
 ```
 
 ---
