@@ -2,9 +2,9 @@ import { Product } from '../types';
 import {
   extractQuantity,
   INGREDIENT_BY_KEY,
-  matchIngredient,
   normalizeText,
 } from '../data/ingredients';
+import { canonicalize } from './normalize';
 
 let counter = 0;
 export function newId(prefix = 'p'): string {
@@ -145,7 +145,7 @@ export function parseTicketText(text: string, source: Product['source'] = 'foto'
   for (const line of lines) {
     if (isIgnorable(line)) continue;
     const { quantity, unit } = extractQuantity(line);
-    const def = matchIngredient(line);
+    const def = canonicalize(line);
 
     if (def) {
       if (seenKeys.has(def.key)) continue; // no duplicar ingredientes conocidos
@@ -201,7 +201,7 @@ export function productFromKey(key: string, source: Product['source']): Product 
  * el ingrediente; si no lo consigue, lo guarda igualmente como "otro".
  */
 export function productFromText(raw: string, source: Product['source'] = 'manual'): Product {
-  const def = matchIngredient(raw);
+  const def = canonicalize(raw);
   const { quantity, unit } = extractQuantity(raw);
   return {
     id: newId(),
