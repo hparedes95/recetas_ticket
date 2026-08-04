@@ -32,6 +32,12 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Comprobar tipos
+        run: npx tsc --noEmit
+
+      - name: Tests del motor
+        run: npm test -- --ci
+
       - name: Compilar web (subruta /recetas_ticket)
         run: npm run build
         env:

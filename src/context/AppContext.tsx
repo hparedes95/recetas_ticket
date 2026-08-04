@@ -282,31 +282,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearShopping = useCallback(() => setShopping([]), []);
 
-  const value: AppContextValue = {
-    preferences,
-    pantry,
-    plans,
-    selectedPlanId,
-    shopping,
-    aiRecipes,
-    generatedRecipes,
-    hydrated,
-    updatePreferences,
-    completeOnboarding,
-    addProducts,
-    removeProduct,
-    clearPantry,
-    regeneratePlans,
-    selectPlan,
-    selectedPlan,
-    getRecipe,
-    generating,
-    generateAIPlan,
-    buildShoppingFromSelected,
-    toggleShoppingItem,
-    addBoughtToPantry,
-    clearShopping,
-  };
+  const value = useMemo<AppContextValue>(
+    () => ({
+      preferences,
+      pantry,
+      plans,
+      selectedPlanId,
+      shopping,
+      aiRecipes,
+      generatedRecipes,
+      hydrated,
+      updatePreferences,
+      completeOnboarding,
+      addProducts,
+      removeProduct,
+      clearPantry,
+      regeneratePlans,
+      selectPlan,
+      selectedPlan,
+      getRecipe,
+      generating,
+      generateAIPlan,
+      buildShoppingFromSelected,
+      toggleShoppingItem,
+      addBoughtToPantry,
+      clearShopping,
+    }),
+    [
+      preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes,
+      hydrated, updatePreferences, completeOnboarding, addProducts, removeProduct, clearPantry,
+      regeneratePlans, selectPlan, selectedPlan, getRecipe, generating, generateAIPlan,
+      buildShoppingFromSelected, toggleShoppingItem, addBoughtToPantry, clearShopping,
+    ],
+  );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
