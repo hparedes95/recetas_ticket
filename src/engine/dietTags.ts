@@ -7,7 +7,7 @@ import { INGREDIENT_BY_KEY } from '../data/ingredients';
 const GLUTEN = new Set([
   'pan', 'pasta', 'harina', 'avena', 'cebada', 'tortilla_wrap', 'seitan',
   'pan_rallado', 'cereales', 'tostada', 'polenta', 'pizza_base', 'noodles',
-  'bolleria', 'galleta',
+  'bolleria', 'galleta', 'cuscus',
 ]);
 const LACTOSE = new Set([
   'leche', 'queso', 'yogur', 'nata', 'mantequilla', 'queso_batido', 'kefir',

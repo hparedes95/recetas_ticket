@@ -52,7 +52,10 @@ export interface Culinary {
   flavor: FlavorProfile[];
   affinities: string[]; // claves de ingredientes que combinan bien
   isPantry: boolean; // es_despensa (aceite, sal, ajo…): se asume disponible
-  isProtein: boolean; // vertebra el plato como proteína
+  // Fuente de proteína. Nota: el GENERADOR elige la proteína PRINCIPAL de un plato
+  // por categoría (carne/pescado/huevo/legumbre), no por este flag; en lácteos como
+  // queso_batido/proteina_polvo isProtein=true es informativo, no lo usa el generador.
+  isProtein: boolean;
   season?: number[]; // meses (1-12) de temporada, opcional
 }
 
