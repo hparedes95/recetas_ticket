@@ -122,6 +122,7 @@ export const NUTRITION_PER_100G: Record<string, Macros> = {
   chocolate: { kcal: 546, protein: 5, carbs: 61, fat: 31 },
   proteina_polvo: { kcal: 375, protein: 80, carbs: 8, fat: 4 },
   leche_vegetal: { kcal: 40, protein: 1, carbs: 4, fat: 2 },
+  leche_coco: { kcal: 197, protein: 2, carbs: 3, fat: 20 },
   salsas: { kcal: 150, protein: 2, carbs: 10, fat: 11 },
   encurtidos: { kcal: 25, protein: 1, carbs: 4, fat: 0.5 },
   vino: { kcal: 83, protein: 0.1, carbs: 3, fat: 0 },

@@ -170,7 +170,7 @@ Con el recetario local, las calorías son exactas hasta cierto punto (el catálo
 
 - Actívalo en **Ajustes → “Recetas con IA”** y pega tu **clave de API de Anthropic** (se guarda solo en tu dispositivo, nunca se sube a GitHub).
 - Consigue una clave en <https://console.anthropic.com/settings/keys>. Cada generación de plan es una llamada a la API y **tiene un pequeño coste** en tu cuenta de Anthropic.
-- El modelo por defecto es `claude-opus-5` (definido en `DEFAULT_AI_MODEL`, `src/engine/aiRecipes.ts`). Puedes cambiarlo por uno más económico como `claude-haiku-4-5` o `claude-sonnet-5`.
+- El modelo por defecto es `claude-sonnet-5` (definido en `DEFAULT_AI_MODEL`, `src/engine/aiRecipes.ts`). Puedes cambiarlo por uno más económico como `claude-haiku-4-5` o `claude-sonnet-5`.
 - Implementación: `src/engine/aiRecipes.ts` llama a la API por HTTPS directo (`fetch`) porque el SDK oficial de Anthropic depende de módulos de Node y no compila en el motor Hermes de React Native.
 
 ---

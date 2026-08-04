@@ -1,7 +1,11 @@
 import { DietGoal, MacroSplit, MealSlot, Recipe, RecipeIngredient } from '../types';
-import { matchIngredient, normalizeText } from '../data/ingredients';
+import { normalizeText } from '../data/ingredients';
+import { canonicalize } from './normalize';
 import { goalMeta, slotMeta, dietTagMeta, macroGramsFor } from '../theme';
 import { newId } from './ticketParser';
+
+/** Milisegundos antes de abortar una llamada a la API (evita spinners infinitos). */
+const AI_TIMEOUT_MS = 30000;
 
 // Generación de recetas con IA (API de Claude). La clave la pone el usuario y se
 // guarda solo en su dispositivo. Se usa cuando el recetario local no basta para
@@ -13,8 +17,8 @@ import { newId } from './ticketParser';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
-/** Modelo por defecto. Se puede cambiar por uno más económico (ver README). */
-export const DEFAULT_AI_MODEL = 'claude-opus-5';
+/** Modelo por defecto (equilibrio calidad/coste; se puede cambiar, ver README). */
+export const DEFAULT_AI_MODEL = 'claude-sonnet-5';
 
 interface AIRecipe {
   name: string;
@@ -116,7 +120,7 @@ function buildPrompt(p: AIGenParams): string {
 
 function aiToRecipe(ai: AIRecipe, slot: MealSlot, goal: DietGoal): Recipe {
   const ingredients: RecipeIngredient[] = (ai.ingredients ?? []).map((i) => {
-    const def = matchIngredient(i.name);
+    const def = canonicalize(i.name);
     return {
       key: def ? def.key : `otro:${normalizeText(i.name)}`,
       name: i.name,
@@ -141,25 +145,37 @@ function aiToRecipe(ai: AIRecipe, slot: MealSlot, goal: DietGoal): Recipe {
 
 /** Genera un conjunto de recetas con IA para una comida concreta. */
 export async function generateAIRecipesForSlot(p: AIGenParams): Promise<Recipe[]> {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': p.apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: p.model || DEFAULT_AI_MODEL,
-      max_tokens: 10000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildPrompt(p) }],
-      output_config: {
-        effort: 'low',
-        format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': p.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
       },
-    }),
-  });
+      body: JSON.stringify({
+        model: p.model || DEFAULT_AI_MODEL,
+        max_tokens: 10000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: buildPrompt(p) }],
+        output_config: {
+          effort: 'low',
+          format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
+        },
+      }),
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError')
+      throw new Error('La IA tardó demasiado en responder. Inténtalo de nuevo.');
+    throw new Error('No se pudo conectar con la IA. Revisa tu conexión.');
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     let detail = '';

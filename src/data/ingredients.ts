@@ -56,7 +56,7 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'cebolla', name: 'Cebolla', emoji: '🧅', category: 'verdura', keywords: ['cebolla', 'cebolleta'] },
   { key: 'ajo', name: 'Ajo', emoji: '🧄', category: 'verdura', keywords: ['ajo', 'ajos'], staple: true },
   { key: 'pimiento', name: 'Pimiento', emoji: '🫑', category: 'verdura', keywords: ['pimiento'] },
-  { key: 'lechuga', name: 'Lechuga', emoji: '🥬', category: 'verdura', keywords: ['lechuga', 'ensalada', 'canonigos', 'rucula', 'espinaca'] },
+  { key: 'lechuga', name: 'Lechuga', emoji: '🥬', category: 'verdura', keywords: ['lechuga', 'ensalada', 'cogollos'] },
   { key: 'espinacas', name: 'Espinacas', emoji: '🥬', category: 'verdura', keywords: ['espinaca'] },
   { key: 'zanahoria', name: 'Zanahoria', emoji: '🥕', category: 'verdura', keywords: ['zanahoria'] },
   { key: 'calabacin', name: 'Calabacín', emoji: '🥒', category: 'verdura', keywords: ['calabacin', 'calabacín'] },
@@ -148,6 +148,7 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'ciruela', name: 'Ciruela / cereza', emoji: '🍒', category: 'fruta', keywords: ['ciruela', 'cereza'] },
   { key: 'arandano', name: 'Arándanos / frambuesa', emoji: '🫐', category: 'fruta', keywords: ['arandano', 'arándano', 'frambuesa', 'mora'] },
   { key: 'coco', name: 'Coco', emoji: '🥥', category: 'fruta', keywords: ['coco'] },
+  { key: 'leche_coco', name: 'Leche de coco', emoji: '🥥', category: 'despensa', keywords: ['leche de coco', 'crema de coco'] },
 
   // Cereales, pan y masas (ampliación)
   { key: 'cereales', name: 'Cereales de desayuno', emoji: '🥣', category: 'cereal', keywords: ['cereales', 'corn flakes', 'muesli', 'granola', 'all bran'] },
@@ -192,7 +193,6 @@ export const INGREDIENTS: IngredientDef[] = [
   { key: 'nabo', name: 'Nabo / chirivía', emoji: '🥔', category: 'verdura', keywords: ['nabo', 'chirivia', 'chirivía'] },
   { key: 'endivia', name: 'Endivias / rúcula', emoji: '🥬', category: 'verdura', keywords: ['endivia', 'escarola', 'berros', 'rucula', 'rúcula', 'canonigos', 'canónigos'] },
   { key: 'granada', name: 'Granada / higos', emoji: '🍇', category: 'fruta', keywords: ['granada', 'higo', 'caqui', 'nispero', 'níspero', 'membrillo', 'chirimoya'] },
-  { key: 'limon_lima', name: 'Lima', emoji: '🍈', category: 'fruta', keywords: ['lima'] },
   { key: 'rape', name: 'Rape / pez espada', emoji: '🐟', category: 'pescado', keywords: ['rape', 'rodaballo', 'emperador', 'pez espada', 'mero'] },
   { key: 'jurel', name: 'Jurel / melva', emoji: '🐟', category: 'pescado', keywords: ['jurel', 'melva', 'verdel'] },
   { key: 'semillas', name: 'Semillas', emoji: '🌰', category: 'despensa', keywords: ['semillas', 'sesamo', 'sésamo', 'pipas girasol', 'pipas de calabaza'] },

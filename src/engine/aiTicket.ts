@@ -1,7 +1,11 @@
 import { Product } from '../types';
-import { matchIngredient, normalizeText } from '../data/ingredients';
+import { normalizeText } from '../data/ingredients';
+import { canonicalize } from './normalize';
 import { newId } from './ticketParser';
 import { DEFAULT_AI_MODEL } from './aiRecipes';
+
+/** Milisegundos antes de abortar la llamada a la API. */
+const AI_TIMEOUT_MS = 30000;
 
 // Lectura de tickets con IA (API de Claude). Extrae los productos de alimentación
 // de un ticket de supermercado, ignorando el ruido (cabeceras, totales, IVA,
@@ -63,7 +67,7 @@ function buildPrompt(ticket: string): string {
 }
 
 function toProduct(item: AITicketItem): Product {
-  const def = matchIngredient(item.canonical) ?? matchIngredient(item.name);
+  const def = canonicalize(item.canonical) ?? canonicalize(item.name);
   return {
     id: newId('p'),
     raw: item.name,
@@ -82,25 +86,37 @@ export async function parseTicketWithAI(
   apiKey: string,
   model?: string,
 ): Promise<Product[]> {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: model || DEFAULT_AI_MODEL,
-      max_tokens: 12000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildPrompt(ticket) }],
-      output_config: {
-        effort: 'low',
-        format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
       },
-    }),
-  });
+      body: JSON.stringify({
+        model: model || DEFAULT_AI_MODEL,
+        max_tokens: 12000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: buildPrompt(ticket) }],
+        output_config: {
+          effort: 'low',
+          format: { type: 'json_schema', schema: OUTPUT_SCHEMA },
+        },
+      }),
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError')
+      throw new Error('La lectura del ticket tardó demasiado. Inténtalo de nuevo.');
+    throw new Error('No se pudo conectar con la IA. Revisa tu conexión.');
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     let detail = '';
