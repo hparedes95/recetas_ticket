@@ -128,7 +128,7 @@ export function analyzeCoverage(
         substitutions.push({ missing: ing.key, use: sub });
         covered++; // cubierto por sustituto
       } else {
-        missing.push({ key: ing.key, name: ing.name });
+        missing.push({ key: ing.key, name: INGREDIENT_BY_KEY[ing.key]?.name ?? ing.name });
       }
     }
   }

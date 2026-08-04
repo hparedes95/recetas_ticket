@@ -325,7 +325,9 @@ export function computeMissing(
       if (isStaple(ing)) continue;
       if (availableKeys.has(ing.key)) continue;
       if (!byKey.has(ing.key)) {
-        byKey.set(ing.key, { key: ing.key, name: ing.name });
+        // Nombre canónico del ingrediente (evita nombres concretos de una receta
+        // que confunden la lista, p. ej. "Leche de coco" para la clave leche).
+        byKey.set(ing.key, { key: ing.key, name: INGREDIENT_BY_KEY[ing.key]?.name ?? ing.name });
       }
     }
   }
@@ -390,7 +392,7 @@ export function shoppingListFromPlan(
       if (availableKeys.has(ing.key)) continue;
       const entry = counts.get(ing.key);
       if (entry) entry.usedIn += 1;
-      else counts.set(ing.key, { name: ing.name, usedIn: 1 });
+      else counts.set(ing.key, { name: INGREDIENT_BY_KEY[ing.key]?.name ?? ing.name, usedIn: 1 });
     }
   }
   return Array.from(counts.entries())

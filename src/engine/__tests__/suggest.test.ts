@@ -19,6 +19,13 @@ describe('cobertura y sustituciones', () => {
     expect(faltanYsust).toContain('judia_verde');
   });
 
+  it('los faltantes usan el nombre canónico del ingrediente', () => {
+    const ajoblanco = RECIPES.find((r) => r.id === 'r_ajoblanco')!; // usa frutos_secos "Almendra cruda"
+    const a = analyzeCoverage(ajoblanco, new Set());
+    const fs = a.missing.find((m) => m.key === 'frutos_secos');
+    expect(fs?.name).toBe('Frutos secos'); // canónico, no "Almendra cruda"
+  });
+
   it('propone un sustituto de la misma categoría y rol', () => {
     const polloAjillo = RECIPES.find((r) => r.id === 'r_pollo_ajillo')!;
     // Tengo pavo, no pollo: debería sugerir pavo como sustituto

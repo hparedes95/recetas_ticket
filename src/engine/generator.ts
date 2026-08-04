@@ -58,6 +58,15 @@ function classify(availableKeys: Set<string>): Pools {
 const name = (key: string): string => INGREDIENT_BY_KEY[key]?.name ?? key;
 const lc = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+// Concordancia: "garbanzos salteadOS" vs "pollo salteadO".
+const isPlural = (n: string): boolean => n.trim().toLowerCase().endsWith('s');
+const agree = (adj: string, key: string): string => adj + (isPlural(name(key)) ? 'os' : 'o');
+
+// Verduras aptas para comer en crudo en un bowl (evita champiñón/berenjena crudos).
+const BOWL_VEG_OK = new Set([
+  'tomate', 'pepino', 'aguacate', 'espinacas', 'lechuga', 'zanahoria', 'pimiento',
+  'maiz', 'remolacha', 'endivia',
+]);
 
 function qtyFor(key: string): { quantity?: number; unit?: string } {
   const def = INGREDIENT_BY_KEY[key];
@@ -85,6 +94,8 @@ interface Template {
   vegCount: number;
   emoji: string;
   timeMinutes: number;
+  /** Filtro opcional de verduras admisibles para esta plantilla (p. ej. bowl = crudo). */
+  vegFilter?: (key: string) => boolean;
   buildName: (protein: string, veg: string[], base?: string) => string;
   buildSteps: (parts: { protein: string; veg: string[]; base?: string; aromatic?: string; acid?: string }) => string[];
 }
@@ -97,7 +108,7 @@ const TEMPLATES: Template[] = [
     vegCount: 2,
     emoji: '🥘',
     timeMinutes: 20,
-    buildName: (p, v) => `${cap(name(p))} salteado con ${lc(name(v[0]))}`,
+    buildName: (p, v) => `${cap(name(p))} ${agree('saltead', p)} con ${lc(name(v[0]))}`,
     buildSteps: ({ protein, veg, aromatic }) => [
       `Corta ${lc(name(protein))} y ${veg.map((k) => lc(name(k))).join(' y ')} en trozos pequeños.`,
       `Calienta un poco de aceite y sofríe ${aromatic ? lc(name(aromatic)) : 'el ajo'} 1 minuto.`,
@@ -157,11 +168,12 @@ const TEMPLATES: Template[] = [
     vegCount: 1,
     emoji: '🥗',
     timeMinutes: 25,
+    vegFilter: (k) => BOWL_VEG_OK.has(k),
     buildName: (p, v, b) => `Bowl de ${lc(name(p))} con ${lc(name(b!))} y ${lc(name(v[0]))}`,
     buildSteps: ({ protein, veg, base, acid }) => [
       `Cuece ${lc(name(base!))} y déjalo templar.`,
-      `Cocina ${lc(name(protein))} a la plancha y trocéalo.`,
-      `Monta el bowl con ${lc(name(base!))}, ${veg.map((k) => lc(name(k))).join(' y ')} en crudo y ${lc(name(protein))}.`,
+      `Cocina ${lc(name(protein))} a la plancha y córtalo en trozos.`,
+      `Monta el bowl con ${lc(name(base!))}, ${veg.map((k) => lc(name(k))).join(' y ')} y ${lc(name(protein))}.`,
       `Aliña con aceite, ${acid ? lc(name(acid)) : 'limón'} y sal.`,
     ],
   },
@@ -221,7 +233,8 @@ function instantiate(
   const dislikes = new Set(opts.dislikes ?? []);
   if (dislikes.has(protein)) return null;
 
-  const veg = pickAffineVeg(protein, pools.vegs, t.vegCount, rng, dislikes);
+  const vegPool = t.vegFilter ? pools.vegs.filter(t.vegFilter) : pools.vegs;
+  const veg = pickAffineVeg(protein, vegPool, t.vegCount, rng, dislikes);
   if (veg.length === 0) return null;
 
   let base: string | undefined;

@@ -53,6 +53,22 @@ describe('generador por plantillas', () => {
     for (const r of recetas) expect(r.tags).toContain('vegano');
   });
 
+  it('concordancia del nombre y verduras de bowl aptas en crudo', () => {
+    const recetas = generateRecipes(
+      new Set(['garbanzos', 'pollo', 'huevo', 'tomate', 'pepino', 'aguacate', 'arroz', 'champinon', 'brocoli']),
+      { seed: 11, max: 8 },
+    );
+    for (const r of recetas) {
+      if (/^Garbanzos saltead/.test(r.name)) expect(r.name).toContain('salteados');
+      if (r.name.startsWith('Bowl')) {
+        const vegs = r.ingredients
+          .filter((i) => INGREDIENT_BY_KEY[i.key]?.category === 'verdura' && !i.staple)
+          .map((i) => i.key);
+        for (const v of vegs) expect(['champinon', 'brocoli', 'berenjena']).not.toContain(v);
+      }
+    }
+  });
+
   it('respeta dislikes', () => {
     const recetas = generateRecipes(PANTRY, { seed: 5, dislikes: ['pollo', 'salmon', 'ternera'] });
     for (const r of recetas) {
