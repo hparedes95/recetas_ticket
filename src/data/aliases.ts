@@ -223,4 +223,18 @@ export const INGREDIENT_ALIASES: Record<string, string> = {
   flax: 'lino',
   soja: 'tofu',
   soy: 'tofu',
+
+  // Cortes y variantes frecuentes en tickets (fallback tras el matcher)
+  redondo: 'ternera',
+  churrasco: 'ternera',
+  chuleton: 'ternera',
+  aguja: 'ternera',
+  chuletas: 'cerdo',
+  cinta: 'cerdo',
+  cazon: 'rape',
+  tilapia: 'merluza',
+  perca: 'merluza',
+  clementina: 'naranja',
+  clementinas: 'naranja',
+  paraguaya: 'melocoton',
 };

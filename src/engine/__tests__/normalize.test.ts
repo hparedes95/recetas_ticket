@@ -46,6 +46,16 @@ describe('canonicalize', () => {
     expect(canonicalize('1,75')).toBeNull();
     expect(canonicalize('---------')).toBeNull();
   });
+
+  it('detección corregida: espinacas ya no se confunde con lechuga', () => {
+    expect(canonicalKey('ESPINACAS BOLSA 300G')).toBe('espinacas');
+  });
+
+  it('nuevos alias de corte/variante y leche de coco', () => {
+    expect(canonicalKey('CHULETON TERNERA')).toBe('ternera');
+    expect(canonicalKey('CLEMENTINA MALLA 2KG')).toBe('naranja');
+    expect(canonicalKey('LECHE DE COCO 400ML')).toBe('leche_coco');
+  });
 });
 
 describe('tabla de alias', () => {

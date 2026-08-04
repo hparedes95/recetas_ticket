@@ -238,23 +238,29 @@ export function normalizeText(input: string): string {
     .trim();
 }
 
+// Índice de keywords normalizadas, precomputado UNA vez (antes se normalizaba
+// cada keyword en cada llamada → coste innecesario con tickets largos).
+const NORMALIZED_KEYWORDS: { def: IngredientDef; nkw: string; len: number }[] = [];
+for (const def of INGREDIENTS) {
+  for (const kw of def.keywords) {
+    const nkw = normalizeText(kw);
+    NORMALIZED_KEYWORDS.push({ def, nkw, len: nkw.length });
+  }
+}
+
 /**
  * Intenta identificar la clave de ingrediente a partir de un texto libre.
  * Devuelve null si no reconoce nada (así el usuario puede añadirlo igualmente).
+ * Preferimos la coincidencia de palabra más larga (más específica).
  */
 export function matchIngredient(raw: string): IngredientDef | null {
   const text = normalizeText(raw);
   if (!text) return null;
 
-  let best: { def: IngredientDef; score: number } | null = null;
-  for (const def of INGREDIENTS) {
-    for (const kw of def.keywords) {
-      const nkw = normalizeText(kw);
-      if (text.includes(nkw)) {
-        // Preferimos coincidencias de palabra más larga (más específicas)
-        const score = nkw.length;
-        if (!best || score > best.score) best = { def, score };
-      }
+  let best: { def: IngredientDef; len: number } | null = null;
+  for (const k of NORMALIZED_KEYWORDS) {
+    if (text.includes(k.nkw) && (!best || k.len > best.len)) {
+      best = { def: k.def, len: k.len };
     }
   }
   return best ? best.def : null;
