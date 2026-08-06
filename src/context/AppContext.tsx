@@ -21,6 +21,7 @@ import {
 } from '../engine/planner';
 import { generateAIRecipesForSlot } from '../engine/aiRecipes';
 import { generateRecipes } from '../engine/generator';
+import { recommendPlan, shoppingNeedsFromPlan } from '../engine/recommend';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { goalMeta } from '../theme';
@@ -65,6 +66,9 @@ interface AppContextValue extends PersistedState {
   clearPantry: () => void;
   // planes
   regeneratePlans: () => MealPlan[];
+  /** Flujo "recomiéndame la semana": crea un plan sin depender de la despensa
+   *  y deja lista la compra (con cantidades) para ir al súper. */
+  recommendWeek: (goal?: DietGoal) => MealPlan;
   selectPlan: (id: string) => void;
   selectedPlan: MealPlan | null;
   getRecipe: (id: string) => Recipe | undefined;
@@ -171,6 +175,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return next;
   }, [pantry, preferences]);
 
+  /**
+   * Flujo "recomiéndame la semana" (inverso al del ticket): la app propone el
+   * plan optimizado por tu objetivo SIN limitarse a la despensa, y deja la lista
+   * de la compra lista, con cantidades para la semana y descontando lo que ya
+   * tienes. Después, en modo compra, marcas y pasa a la despensa.
+   */
+  const recommendWeek = useCallback(
+    (goal?: DietGoal): MealPlan => {
+      const { plan, recipes, needs } = recommendPlan(preferences, pantry, goal);
+      setGeneratedRecipes((prev) => ({ ...prev, ...recipes }));
+      setPlans((prev) => [plan, ...prev]);
+      setSelectedPlanId(plan.id);
+      setShopping(
+        needs
+          .filter((n) => !n.alreadyHave) // solo lo que hay que comprar
+          .map((n) => ({
+            key: n.key,
+            name: n.name,
+            checked: false,
+            usedIn: n.usedIn,
+            quantity: n.quantity,
+            unit: n.unit,
+            category: n.category,
+          })),
+      );
+      return plan;
+    },
+    [preferences, pantry],
+  );
+
   const selectPlan = useCallback((id: string) => setSelectedPlanId(id), []);
 
   const selectedPlan = useMemo(
@@ -255,8 +289,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const buildShoppingFromSelected = useCallback(() => {
     if (!selectedPlan) return;
     const mergedMap = { ...RECIPE_BY_ID, ...generatedRecipes, ...aiRecipes };
-    setShopping(shoppingListFromPlan(selectedPlan, pantry, mergedMap));
-  }, [selectedPlan, pantry, aiRecipes, generatedRecipes]);
+    // Lista con CANTIDADES agregadas de la semana (escaladas por personas) y
+    // descontando lo que ya hay en la despensa. Igual para cualquier plan.
+    const needs = shoppingNeedsFromPlan(selectedPlan, pantry, mergedMap, preferences.people);
+    setShopping(
+      needs
+        .filter((n) => !n.alreadyHave)
+        .map((n) => ({
+          key: n.key,
+          name: n.name,
+          checked: false,
+          usedIn: n.usedIn,
+          quantity: n.quantity,
+          unit: n.unit,
+          category: n.category,
+        })),
+    );
+  }, [selectedPlan, pantry, aiRecipes, generatedRecipes, preferences.people]);
 
   const toggleShoppingItem = useCallback((key: string) => {
     setShopping((prev) =>
@@ -298,6 +347,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeProduct,
       clearPantry,
       regeneratePlans,
+      recommendWeek,
       selectPlan,
       selectedPlan,
       getRecipe,
@@ -311,7 +361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [
       preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes,
       hydrated, updatePreferences, completeOnboarding, addProducts, removeProduct, clearPantry,
-      regeneratePlans, selectPlan, selectedPlan, getRecipe, generating, generateAIPlan,
+      regeneratePlans, recommendWeek, selectPlan, selectedPlan, getRecipe, generating, generateAIPlan,
       buildShoppingFromSelected, toggleShoppingItem, addBoughtToPantry, clearShopping,
     ],
   );

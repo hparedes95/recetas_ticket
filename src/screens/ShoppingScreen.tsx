@@ -88,7 +88,14 @@ export default function ShoppingScreen() {
                 {item.checked ? <Text style={styles.checkMark}>✓</Text> : null}
               </View>
               <Text style={styles.rowEmoji}>{def?.emoji ?? '🛒'}</Text>
-              <Text style={[styles.rowName, item.checked && styles.rowNameChecked]}>{item.name}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowName, item.checked && styles.rowNameChecked]}>{item.name}</Text>
+                {item.quantity ? (
+                  <Text style={styles.rowQty}>
+                    {item.quantity} {item.unit ?? ''}
+                  </Text>
+                ) : null}
+              </View>
               {item.usedIn > 1 ? (
                 <Text style={styles.usedIn}>×{item.usedIn}</Text>
               ) : null}
@@ -161,7 +168,8 @@ const styles = StyleSheet.create({
   checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkMark: { color: '#fff', fontWeight: font.weight.bold, fontSize: font.size.sm },
   rowEmoji: { fontSize: 22 },
-  rowName: { flex: 1, fontSize: font.size.md, color: colors.text, fontWeight: font.weight.medium },
+  rowName: { fontSize: font.size.md, color: colors.text, fontWeight: font.weight.medium },
+  rowQty: { fontSize: font.size.xs, color: colors.primary, fontWeight: font.weight.semibold, marginTop: 1 },
   rowNameChecked: { textDecorationLine: 'line-through', color: colors.textFaint },
   usedIn: { fontSize: font.size.xs, color: colors.textMuted, fontWeight: font.weight.bold },
   secondaryRow: { flexDirection: 'row', gap: spacing.sm },

@@ -64,6 +64,33 @@ describe('recommendPlan (flujo sin despensa)', () => {
     if (idxHave >= 0 && idxBuy >= 0) expect(idxBuy).toBeLessThan(idxHave);
   });
 
+  it('la cobertura refleja la despensa REAL (no dice "lo tienes" si está vacía)', () => {
+    const { plan } = recommendPlan(PREFS, [], 'saludable', 9);
+    // con despensa vacía, ninguna comida puede estar cubierta al 100%
+    for (const m of plan.meals) expect(m.coverage).toBeLessThan(1);
+    // con despensa llena de lo necesario, la cobertura sube
+    const { plan: p2, recipes } = recommendPlan(PREFS, [], 'saludable', 9);
+    const map = { ...RECIPE_BY_ID, ...recipes };
+    const keys = new Set<string>();
+    for (const m of p2.meals) for (const i of map[m.recipeId]!.ingredients) keys.add(i.key);
+    const pantryFull = [...keys].map((k, i) => ({
+      id: 'q' + i, raw: k, ingredientKey: k, displayName: k, source: 'manual' as const, addedAt: 0,
+    }));
+    const { plan: p3 } = recommendPlan(PREFS, pantryFull, 'saludable', 9);
+    const avg = p3.meals.reduce((s, m) => s + m.coverage, 0) / p3.meals.length;
+    expect(avg).toBeGreaterThan(0.9);
+  });
+
+  it('no recomienda embutidos/ultraprocesados en objetivos saludables', () => {
+    const sano = shoppableUniverse('saludable');
+    expect(sano.has('chorizo')).toBe(false);
+    expect(sano.has('bacon')).toBe(false);
+    expect(sano.has('bolleria')).toBe(false);
+    expect(sano.has('pollo')).toBe(true);
+    // en "cheat" sí se permiten los caprichos
+    expect(shoppableUniverse('cheat').has('chorizo')).toBe(true);
+  });
+
   it('respeta restricciones dietéticas en el plan recomendado', () => {
     const { plan, recipes } = recommendPlan(
       { ...PREFS, restrictions: ['vegano'] }, [], 'saludable', 5,

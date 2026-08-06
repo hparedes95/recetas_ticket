@@ -137,4 +137,9 @@ export interface ShoppingItem {
   checked: boolean;
   /** En cuántas recetas del plan se usa */
   usedIn: number;
+  /** Cantidad agregada para la semana (flujo "recomiéndame"), si se calculó */
+  quantity?: number;
+  unit?: string;
+  /** Categoría del ingrediente, para agrupar por pasillo */
+  category?: string;
 }

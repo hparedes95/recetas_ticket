@@ -8,18 +8,30 @@
 import { DietGoal, MealPlan, Preferences, Product, Recipe } from '../types';
 import { INGREDIENTS, INGREDIENT_BY_KEY } from '../data/ingredients';
 import { RECIPE_BY_ID } from '../data/recipes';
-import { generatePlanForGoal } from './planner';
+import { generatePlanForGoal, coverageOf } from './planner';
 import { generateRecipes } from './generator';
 import { gramsOf } from '../data/nutrition';
+
+// Ultraprocesados/embutidos grasos: no los recomendamos por defecto en objetivos
+// saludables (sí en "cheat", que es justo para caprichos).
+const INDULGENT = new Set([
+  'chorizo', 'bacon', 'salchicha', 'longaniza', 'salchichon', 'costillas',
+  'snack_salado', 'bolleria', 'helado', 'chuches', 'pizza_base', 'nata',
+]);
 
 /**
  * Universo de ingredientes "comprables": todo lo que la app conoce, salvo cosas
  * que no son ingredientes de receta (bebidas, dulces/snacks). Se usa como
  * "disponible" al planificar para que el plan NO esté limitado por la despensa.
+ * En objetivos saludables se excluyen además los embutidos/ultraprocesados.
  */
-export function shoppableUniverse(): Set<string> {
+export function shoppableUniverse(goal?: DietGoal): Set<string> {
+  const allowIndulgent = goal === 'cheat';
   const keys = INGREDIENTS.filter(
-    (d) => d.category !== 'bebida' && d.category !== 'dulce',
+    (d) =>
+      d.category !== 'bebida' &&
+      d.category !== 'dulce' &&
+      (allowIndulgent || !INDULGENT.has(d.key)),
   ).map((d) => d.key);
   return new Set(keys);
 }
@@ -162,8 +174,8 @@ export function recommendPlan(
   goal?: DietGoal,
   seed?: number,
 ): RecommendResult {
-  const universe = shoppableUniverse();
   const target: DietGoal = goal ?? prefs.defaultGoal;
+  const universe = shoppableUniverse(target);
 
   // Recetas generadas a partir del universo (creatividad sin límite de despensa)
   const generated = generateRecipes(universe, {
@@ -188,6 +200,16 @@ export function recommendPlan(
 
   const recipes: Record<string, Recipe> = {};
   for (const r of generated) recipes[r.id] = r;
+
+  // La cobertura se calculó contra el universo (todo disponible). En este flujo
+  // el usuario NO tiene esos ingredientes, así que la recalculamos contra su
+  // despensa real para que la UI no diga "lo tienes" cuando hay que comprarlo.
+  const realKeys = new Set(pantry.map((p) => p.ingredientKey));
+  const recipeMapForCoverage: Record<string, Recipe> = { ...RECIPE_BY_ID, ...recipes };
+  plan.meals = plan.meals.map((m) => {
+    const r = recipeMapForCoverage[m.recipeId];
+    return r ? { ...m, coverage: coverageOf(r, realKeys) } : m;
+  });
 
   // Qué comprar: cantidades de la semana escaladas por personas, descontando
   // lo que el usuario ya tiene en la despensa.

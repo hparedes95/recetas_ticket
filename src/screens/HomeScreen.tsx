@@ -12,14 +12,30 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
   const nav = useNavigation<Nav>();
-  const { pantry, selectedPlan, plans, regeneratePlans, getRecipe } = useApp();
+  const { pantry, selectedPlan, plans, regeneratePlans, recommendWeek, getRecipe } = useApp();
 
   const greeting = getGreeting();
+
+  // Flujo "recomiéndame": la app propone la semana y deja la compra lista.
+  const onRecommend = () => {
+    const plan = recommendWeek();
+    nav.navigate('PlanDetail', { planId: plan.id });
+  };
 
   return (
     <Screen scroll>
       <Text style={styles.kicker}>{greeting}</Text>
       <Title>¿Qué cocinamos esta semana?</Title>
+
+      {/* Flujo recomendado: plan primero, compra después */}
+      <Card style={styles.recCard}>
+        <Text style={styles.addEmoji}>✨</Text>
+        <Text style={styles.addTitle}>Recomiéndame la semana</Text>
+        <Text style={styles.addSub}>
+          Te proponemos el menú según tu objetivo y te decimos justo qué comprar.
+        </Text>
+        <AppButton title="Crear mi semana" icon="🍽️" onPress={onRecommend} />
+      </Card>
 
       {/* Añadir la compra */}
       <Card style={styles.addCard}>
@@ -139,6 +155,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   addCard: { marginTop: spacing.xl, backgroundColor: colors.primaryDark },
+  recCard: { marginTop: spacing.xl, backgroundColor: colors.accent },
   addEmoji: { fontSize: 34 },
   addTitle: {
     fontSize: font.size.xl,
