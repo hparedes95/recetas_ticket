@@ -5,11 +5,16 @@
 // usa para DESCONTAR lo que ya tenga de la lista de la compra.
 //
 // Lógica pura (sin React Native) → testeable en node.
-import { DietGoal, MealPlan, Preferences, Product, Recipe } from '../types';
+import { DietGoal, MealPlan, MealSlot, Preferences, Product, Recipe } from '../types';
 import { INGREDIENTS, INGREDIENT_BY_KEY } from '../data/ingredients';
 import { RECIPE_BY_ID } from '../data/recipes';
-import { generatePlanForGoal, coverageOf } from './planner';
+import { coverageOf, buildTargets, computeMissing, computeAvgDailyMacros } from './planner';
 import { generateRecipes } from './generator';
+import { buildWeeklyMenu, easyPool } from './weekly';
+import { makeRng } from './rng';
+import { RECIPES } from '../data/recipes';
+import { goalMeta } from '../theme';
+import { newId } from './ticketParser';
 import { gramsOf } from '../data/nutrition';
 
 // Ultraprocesados/embutidos grasos: no los recomendamos por defecto en objetivos
@@ -186,34 +191,61 @@ export function recommendPlan(
     max: 12,
   });
 
-  // Planificamos como si tuviéramos todo: el plan se optimiza por objetivo
-  const fakePantry: Product[] = [...universe].map((k, i) => ({
-    id: `u${i}`,
-    raw: k,
-    ingredientKey: k,
-    displayName: INGREDIENT_BY_KEY[k]?.name ?? k,
-    source: 'manual',
-    addedAt: 0,
-  }));
-
-  const plan = generatePlanForGoal(fakePantry, prefs, target, generated);
-
   const recipes: Record<string, Recipe> = {};
   for (const r of generated) recipes[r.id] = r;
+  const recipeMap: Record<string, Recipe> = { ...RECIPE_BY_ID, ...recipes };
 
-  // La cobertura se calculó contra el universo (todo disponible). En este flujo
-  // el usuario NO tiene esos ingredientes, así que la recalculamos contra su
-  // despensa real para que la UI no diga "lo tienes" cuando hay que comprarlo.
+  // Candidatos por comida: catálogo + generadas, SOLO platos sencillos y que
+  // respeten las restricciones del usuario. Los ingredientes están todos
+  // disponibles (es una lista de la compra), así que no filtramos por despensa.
+  const slots: MealSlot[] = prefs.mealsPerDay.length > 0 ? prefs.mealsPerDay : ['comida', 'cena'];
+  const dislikes = new Set(prefs.dislikes);
+  const candidates = [...RECIPES, ...generated].filter(
+    (r) =>
+      prefs.restrictions.every((t) => r.tags.includes(t)) &&
+      !r.ingredients.some((i) => dislikes.has(i.key)) &&
+      r.ingredients.every((i) => universe.has(i.key) || INGREDIENT_BY_KEY[i.key]?.staple),
+  );
+
+  const poolsBySlot: Partial<Record<MealSlot, Recipe[]>> = {};
+  for (const slot of slots) {
+    poolsBySlot[slot] = easyPool(candidates.filter((r) => r.slot.includes(slot)));
+  }
+
+  // Semana SIN repetir ninguna comida y con las cuotas dietéticas (AESAN/DM)
+  const targets = buildTargets(prefs, slots);
+  const meals = buildWeeklyMenu({
+    slots,
+    poolsBySlot,
+    targetKcal: prefs.calorieTarget ?? null,
+    slotKcal: targets.slotKcal,
+    macroSplit: targets.macroSplit,
+    rng: makeRng(seed ?? (Date.now() >>> 0)),
+  });
+
+  // Cobertura contra la despensa REAL (aquí normalmente habrá que comprarlo todo)
   const realKeys = new Set(pantry.map((p) => p.ingredientKey));
-  const recipeMapForCoverage: Record<string, Recipe> = { ...RECIPE_BY_ID, ...recipes };
-  plan.meals = plan.meals.map((m) => {
-    const r = recipeMapForCoverage[m.recipeId];
+  const withCoverage = meals.map((m) => {
+    const r = recipeMap[m.recipeId];
     return r ? { ...m, coverage: coverageOf(r, realKeys) } : m;
   });
 
+  const meta = goalMeta[target];
+  const plan: MealPlan = {
+    id: newId('rec'),
+    goal: target,
+    title: meta.label,
+    subtitle: meta.description,
+    meals: withCoverage,
+    missing: computeMissing(withCoverage, realKeys, recipeMap),
+    avgDailyMacros: computeAvgDailyMacros(withCoverage, recipeMap),
+    calorieTarget: prefs.calorieTarget ?? null,
+    macroSplit: prefs.macroSplit ?? null,
+    createdAt: Date.now(),
+  };
+
   // Qué comprar: cantidades de la semana escaladas por personas, descontando
   // lo que el usuario ya tiene en la despensa.
-  const recipeMap: Record<string, Recipe> = { ...RECIPE_BY_ID, ...recipes };
   const needs = shoppingNeedsFromPlan(plan, pantry, recipeMap, prefs.people);
 
   return { plan, recipes, needs };

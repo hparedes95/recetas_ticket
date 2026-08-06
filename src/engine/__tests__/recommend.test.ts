@@ -1,6 +1,7 @@
 import { recommendPlan, shoppingNeedsFromPlan, shoppableUniverse } from '../recommend';
 import { RECIPE_BY_ID } from '../../data/recipes';
 import { INGREDIENT_BY_KEY } from '../../data/ingredients';
+import { weeklyCompliance } from '../../data/dietary';
 import { Preferences, Product } from '../../types';
 
 const PREFS: Preferences = {
@@ -62,6 +63,39 @@ describe('recommendPlan (flujo sin despensa)', () => {
     const idxHave = needs.findIndex((n) => n.alreadyHave);
     const idxBuy = needs.findIndex((n) => !n.alreadyHave);
     if (idxHave >= 0 && idxBuy >= 0) expect(idxBuy).toBeLessThan(idxHave);
+  });
+
+  it('NO repite ninguna comida en toda la semana', () => {
+    for (const seed of [1, 2, 3, 7, 42, 99]) {
+      const { plan } = recommendPlan(PREFS, [], 'saludable', seed);
+      const ids = plan.meals.map((m) => m.recipeId);
+      expect(new Set(ids).size).toBe(ids.length); // 21 comidas, 21 recetas distintas
+    }
+  });
+
+  it('todas las comidas son fáciles (tiempo y pasos razonables)', () => {
+    const { plan, recipes } = recommendPlan(PREFS, [], 'saludable', 5);
+    const map = { ...RECIPE_BY_ID, ...recipes };
+    for (const m of plan.meals) {
+      const r = map[m.recipeId]!;
+      expect(r.timeMinutes).toBeLessThanOrEqual(40);
+      expect(r.steps.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('cumple los estándares dietéticos semanales (AESAN / dieta mediterránea)', () => {
+    for (const seed of [4, 8, 15, 16]) {
+      const { plan, recipes } = recommendPlan(PREFS, [], 'saludable', seed);
+      const map = { ...RECIPE_BY_ID, ...recipes };
+      const mains = plan.meals
+        .filter((m) => m.slot === 'comida' || m.slot === 'cena')
+        .map((m) => map[m.recipeId]!);
+      const c = weeklyCompliance(mains);
+      expect(c.legumbresOk).toBe(true); // ≥4 raciones de legumbre/semana
+      expect(c.pescadoOk).toBe(true); // ≥2 raciones de pescado/semana
+      expect(c.carneRojaOk).toBe(true); // ≤3 de carne roja/semana
+      expect(c.counts.ave).toBeLessThanOrEqual(4); // prioriza aves pero sin abusar
+    }
   });
 
   it('la cobertura refleja la despensa REAL (no dice "lo tienes" si está vacía)', () => {
