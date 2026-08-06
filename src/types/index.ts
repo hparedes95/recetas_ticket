@@ -31,6 +31,8 @@ export interface Preferences {
   restrictions: DietTag[];
   /** Ingredientes que el usuario no quiere (claves de ingrediente) */
   dislikes: string[];
+  /** Ingredientes favoritos del usuario: se priorizan en los planes */
+  likes: string[];
   /** Comidas al día que quiere planificar */
   mealsPerDay: MealSlot[];
   /** Objetivo de calorías al día (null = automático según el objetivo) */

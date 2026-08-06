@@ -1,5 +1,8 @@
 import React from 'react';
 import { Linking, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 import { Screen, Title, Subtitle, Card, AppButton, Chip, SectionTitle } from '../components/ui';
 import { colors, spacing, font, goalMeta, dietTagMeta, slotMeta } from '../theme';
@@ -12,7 +15,10 @@ const GOALS = Object.keys(goalMeta) as DietGoal[];
 const SLOTS: MealSlot[] = ['desayuno', 'comida', 'cena', 'snack'];
 const TAGS = Object.keys(dietTagMeta) as DietTag[];
 
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
 export default function PreferencesScreen() {
+  const nav = useNavigation<Nav>();
   const { preferences, updatePreferences, regeneratePlans } = useApp();
   const p = preferences;
 
@@ -79,6 +85,24 @@ export default function PreferencesScreen() {
           />
         ))}
       </View>
+
+      <SectionTitle>Mis gustos</SectionTitle>
+      <Card>
+        <Text style={styles.tasteHint}>
+          Elige lo que te encanta y lo que no quieres ver en tus planes.
+        </Text>
+        <View style={{ height: spacing.sm }} />
+        <AppButton
+          title={
+            (p.likes?.length ?? 0) + (p.dislikes?.length ?? 0) > 0
+              ? `Editar gustos (❤️ ${p.likes?.length ?? 0} · 🚫 ${p.dislikes?.length ?? 0})`
+              : 'Elegir alimentos'
+          }
+          icon="🍽️"
+          variant="secondary"
+          onPress={() => nav.navigate('Tastes')}
+        />
+      </Card>
 
       <SectionTitle>Calorías y macros</SectionTitle>
       <Card>
@@ -152,6 +176,7 @@ export default function PreferencesScreen() {
 }
 
 const styles = StyleSheet.create({
+  tasteHint: { fontSize: font.size.sm, color: colors.textMuted },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
   stepBtn: { width: 54, paddingHorizontal: 0 },

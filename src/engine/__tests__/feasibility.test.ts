@@ -43,6 +43,7 @@ describe('factibilidad del catálogo', () => {
       defaultGoal: 'saludable' as const,
       restrictions: [],
       dislikes: [],
+  likes: [],
       mealsPerDay: ['desayuno', 'comida', 'cena'] as const,
       calorieTarget: 2000,
       macroSplit: { protein: 30, carbs: 40, fat: 30 },

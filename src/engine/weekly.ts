@@ -9,7 +9,14 @@
 //
 // Lógica pura (sin React Native) → testeable en node.
 import { MacroSplit, MealSlot, PlannedMeal, Recipe } from '../types';
-import { proteinGroupOf, ProteinGroup, WEEKLY_MAIN_QUOTA, WEEKLY_MAIN_MAX, isEasy } from '../data/dietary';
+import {
+  proteinGroupOf,
+  ProteinGroup,
+  WEEKLY_MAIN_QUOTA,
+  WEEKLY_MAIN_MAX,
+  isEasy,
+  isSuitableForDinner,
+} from '../data/dietary';
 import { macroMatch } from './planner';
 import { Rng } from './rng';
 
@@ -27,6 +34,8 @@ export interface WeeklyInput {
   slotKcal: Partial<Record<MealSlot, number>>;
   macroSplit: MacroSplit | null;
   rng: Rng;
+  /** Ingredientes favoritos del usuario: se premian */
+  likes?: string[];
 }
 
 /** Puntúa cuánto encaja una receta en una comida (calorías, macros, sencillez). */
@@ -34,8 +43,14 @@ function fitScore(
   recipe: Recipe,
   slotTarget: number | undefined,
   macroSplit: MacroSplit | null,
+  likes?: Set<string>,
 ): number {
   let s = 0;
+  if (likes && likes.size > 0) {
+    // premia los platos que usan lo que al usuario le gusta
+    const hits = recipe.ingredients.filter((i) => !i.staple && likes.has(i.key)).length;
+    s += Math.min(3, hits) * 0.9;
+  }
   if (slotTarget && slotTarget > 0) {
     const diff = Math.abs(recipe.macros.kcal - slotTarget) / slotTarget;
     s += (1 - Math.min(1, diff)) * 2;
@@ -76,6 +91,7 @@ function buildGroupPlan(mainCount: number, rng: Rng): ProteinGroup[] {
  */
 export function buildWeeklyMenu(input: WeeklyInput): PlannedMeal[] {
   const { slots, poolsBySlot, targetKcal, slotKcal, macroSplit, rng } = input;
+  const likes = new Set(input.likes ?? []);
   const used = new Set<string>(); // ids ya usados en TODA la semana
   const meals: PlannedMeal[] = [];
 
@@ -95,7 +111,7 @@ export function buildWeeklyMenu(input: WeeklyInput): PlannedMeal[] {
       if (pool.length === 0) continue;
       const wanted = groupPlan[gi++] ?? 'legumbre';
 
-      const scoreOf = (r: Recipe) => fitScore(r, slotKcal[slot], macroSplit);
+      const scoreOf = (r: Recipe) => fitScore(r, slotKcal[slot], macroSplit, likes);
       const maxFor = (g: ProteinGroup) => WEEKLY_MAIN_MAX[g] ?? Infinity;
 
       // 1) candidatos del grupo pedido que no superen su tope semanal
@@ -124,7 +140,9 @@ export function buildWeeklyMenu(input: WeeklyInput): PlannedMeal[] {
       const pool = (poolsBySlot[slot] ?? []).filter((r) => !used.has(r.id));
       if (pool.length === 0) continue;
       const pick = pool.sort(
-        (a, b) => fitScore(b, slotKcal[slot], macroSplit) - fitScore(a, slotKcal[slot], macroSplit),
+        (a, b) =>
+          fitScore(b, slotKcal[slot], macroSplit, likes) -
+          fitScore(a, slotKcal[slot], macroSplit, likes),
       )[0];
       used.add(pick.id);
       chosen.push({ day, slot, recipeId: pick.id, coverage: 0 });
@@ -145,6 +163,19 @@ export function buildWeeklyMenu(input: WeeklyInput): PlannedMeal[] {
     for (const m of dayMeals) meals.push({ ...m, portionFactor: factor });
   }
   return meals;
+}
+
+/**
+ * Pool de candidatos para una comida concreta: platos fáciles y COHERENTES con
+ * ese momento del día (la cena es ligera: sin plato de pasta/arroz/patata ni
+ * excesos de calorías). Si el filtro deja muy pocas opciones, se relaja para no
+ * quedarnos sin menú.
+ */
+export function slotPool(recipes: Recipe[], slot: MealSlot, minSize = 8): Recipe[] {
+  const coherent = slot === 'cena' ? recipes.filter(isSuitableForDinner) : recipes;
+  const base = coherent.length >= minSize ? coherent : recipes;
+  const easy = base.filter((r) => isEasy(r));
+  return easy.length >= minSize ? easy : base;
 }
 
 /** Filtra un pool a recetas fáciles, dejando el original si quedan muy pocas. */

@@ -1,7 +1,7 @@
 import { recommendPlan, shoppingNeedsFromPlan, shoppableUniverse } from '../recommend';
 import { RECIPE_BY_ID } from '../../data/recipes';
 import { INGREDIENT_BY_KEY } from '../../data/ingredients';
-import { weeklyCompliance } from '../../data/dietary';
+import { weeklyCompliance, hasHeavyStarchBase } from '../../data/dietary';
 import { Preferences, Product } from '../../types';
 
 const PREFS: Preferences = {
@@ -9,6 +9,7 @@ const PREFS: Preferences = {
   defaultGoal: 'saludable',
   restrictions: [],
   dislikes: [],
+  likes: [],
   mealsPerDay: ['desayuno', 'comida', 'cena'],
   calorieTarget: 2000,
   macroSplit: { protein: 30, carbs: 40, fat: 30 },
@@ -96,6 +97,46 @@ describe('recommendPlan (flujo sin despensa)', () => {
       expect(c.carneRojaOk).toBe(true); // ≤3 de carne roja/semana
       expect(c.counts.ave).toBeLessThanOrEqual(4); // prioriza aves pero sin abusar
     }
+  });
+
+  it('las CENAS son ligeras y coherentes (nada de pasta/arroz de plato principal)', () => {
+    for (const seed of [1, 6, 21, 33]) {
+      const { plan, recipes } = recommendPlan(PREFS, [], 'saludable', seed);
+      const map = { ...RECIPE_BY_ID, ...recipes };
+      for (const m of plan.meals.filter((x) => x.slot === 'cena')) {
+        const r = map[m.recipeId]!;
+        expect(hasHeavyStarchBase(r)).toBe(false); // sin plato de pasta/arroz/patata
+        expect(r.macros.kcal).toBeLessThanOrEqual(600);
+      }
+    }
+  });
+
+  it('NUNCA incluye un alimento que el usuario ha marcado como no deseado', () => {
+    const noQuiero = ['atun', 'salmon', 'tofu', 'champinon'];
+    const { plan, recipes, needs } = recommendPlan(
+      { ...PREFS, dislikes: noQuiero }, [], 'saludable', 5,
+    );
+    const map = { ...RECIPE_BY_ID, ...recipes };
+    for (const m of plan.meals) {
+      for (const i of map[m.recipeId]!.ingredients) {
+        expect(noQuiero).not.toContain(i.key);
+      }
+    }
+    // tampoco aparecen en la lista de la compra
+    for (const n of needs) expect(noQuiero).not.toContain(n.key);
+  });
+
+  it('prioriza los alimentos favoritos del usuario', () => {
+    const favoritos = ['garbanzos', 'lentejas', 'brocoli'];
+    const conGustos = recommendPlan({ ...PREFS, likes: favoritos }, [], 'saludable', 3);
+    const sinGustos = recommendPlan(PREFS, [], 'saludable', 3);
+    const count = (res: typeof conGustos) => {
+      const map = { ...RECIPE_BY_ID, ...res.recipes };
+      return res.plan.meals.filter((m) =>
+        map[m.recipeId]!.ingredients.some((i) => favoritos.includes(i.key)),
+      ).length;
+    };
+    expect(count(conGustos)).toBeGreaterThanOrEqual(count(sinGustos));
   });
 
   it('la cobertura refleja la despensa REAL (no dice "lo tienes" si está vacía)', () => {

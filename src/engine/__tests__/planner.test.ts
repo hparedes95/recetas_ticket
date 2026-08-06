@@ -7,7 +7,7 @@ function pantry(keys: string[]): Product[] {
   return keys.map((k, i) => ({ id: 'p' + i, raw: k, ingredientKey: k, displayName: k, source: 'manual' as const, addedAt: 0 }));
 }
 const PREFS: Preferences = {
-  people: 2, defaultGoal: 'saludable', restrictions: [], dislikes: [],
+  people: 2, defaultGoal: 'saludable', restrictions: [], dislikes: [], likes: [],
   mealsPerDay: ['desayuno', 'comida', 'cena'], calorieTarget: 2000,
   macroSplit: { protein: 30, carbs: 40, fat: 30 }, aiApiKey: null, useAI: false, onboarded: true,
 };

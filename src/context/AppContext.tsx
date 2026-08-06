@@ -35,6 +35,7 @@ const DEFAULT_PREFERENCES: Preferences = {
   defaultGoal: 'saludable',
   restrictions: [],
   dislikes: [],
+  likes: [],
   mealsPerDay: ['desayuno', 'comida', 'cena'],
   calorieTarget: null,
   macroSplit: null,

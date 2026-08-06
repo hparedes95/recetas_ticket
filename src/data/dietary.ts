@@ -58,6 +58,39 @@ export function isEasy(recipe: Recipe, maxMinutes = 40, maxSteps = 5): boolean {
   return recipe.timeMinutes <= maxMinutes && recipe.steps.length <= maxSteps;
 }
 
+// Bases de fécula que hacen un plato "de comida" (contundente). En la cena, la
+// costumbre mediterránea es algo más ligero: pescado, verduras, huevo, cremas o
+// ensaladas, no un plato de pasta o arroz.
+const HEAVY_STARCH = new Set([
+  'pasta', 'arroz', 'patata', 'pan', 'pizza_base', 'tortilla_wrap', 'noodles', 'polenta', 'cuscus',
+]);
+
+/** ¿El plato se apoya en una base de fécula en cantidad de plato principal? */
+export function hasHeavyStarchBase(recipe: Recipe): boolean {
+  return recipe.ingredients.some(
+    (i) => !i.staple && HEAVY_STARCH.has(i.key) && (i.quantity ?? 0) >= 60,
+  );
+}
+
+/** Tope de calorías por ración para considerar un plato apto de cena. */
+export const DINNER_KCAL_MAX = 600;
+
+/**
+ * ¿Es un plato coherente para CENAR? Cena ligera: sin plato de pasta/arroz/
+ * patata como base y sin excederse de calorías. (El desayuno y la comida no
+ * tienen esta restricción.)
+ */
+export function isSuitableForDinner(recipe: Recipe): boolean {
+  if (!recipe.slot.includes('cena')) return false;
+  if (hasHeavyStarchBase(recipe)) return false;
+  return recipe.macros.kcal <= DINNER_KCAL_MAX;
+}
+
+/** ¿Es coherente como COMIDA principal del día? (el plato fuerte) */
+export function isSuitableForLunch(recipe: Recipe): boolean {
+  return recipe.slot.includes('comida');
+}
+
 /** Resumen de cumplimiento dietético de una semana de comidas principales. */
 export function weeklyCompliance(mainRecipes: Recipe[]): {
   counts: Record<ProteinGroup, number>;

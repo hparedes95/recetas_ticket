@@ -10,7 +10,7 @@ import { INGREDIENTS, INGREDIENT_BY_KEY } from '../data/ingredients';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { coverageOf, buildTargets, computeMissing, computeAvgDailyMacros } from './planner';
 import { generateRecipes } from './generator';
-import { buildWeeklyMenu, easyPool } from './weekly';
+import { buildWeeklyMenu, slotPool } from './weekly';
 import { makeRng } from './rng';
 import { RECIPES } from '../data/recipes';
 import { goalMeta } from '../theme';
@@ -209,7 +209,7 @@ export function recommendPlan(
 
   const poolsBySlot: Partial<Record<MealSlot, Recipe[]>> = {};
   for (const slot of slots) {
-    poolsBySlot[slot] = easyPool(candidates.filter((r) => r.slot.includes(slot)));
+    poolsBySlot[slot] = slotPool(candidates.filter((r) => r.slot.includes(slot)), slot);
   }
 
   // Semana SIN repetir ninguna comida y con las cuotas dietéticas (AESAN/DM)
@@ -221,6 +221,7 @@ export function recommendPlan(
     slotKcal: targets.slotKcal,
     macroSplit: targets.macroSplit,
     rng: makeRng(seed ?? (Date.now() >>> 0)),
+    likes: prefs.likes ?? [],
   });
 
   // Cobertura contra la despensa REAL (aquí normalmente habrá que comprarlo todo)
