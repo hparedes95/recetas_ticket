@@ -1,4 +1,5 @@
 import {
+  mergeProfileLists,
   generateFamilyCode,
   normalizeFamilyCode,
   mergeShopping,
@@ -70,6 +71,59 @@ describe('fusión de la lista de la compra', () => {
   });
 });
 
+describe('fusión de los miembros (gustos de cada uno)', () => {
+  it('cada uno edita SUS gustos a la vez y no se pierde ninguno', () => {
+    // situación real: yo marco mis gustos en mi móvil, ella los suyos en el suyo
+    const yoLocal = makeProfile({ id: 'yo', likes: ['salmon'], updatedAt: 200 });
+    const ellaLocal = makeProfile({ id: 'ella', likes: [], updatedAt: 100 });
+    const yoRemoto = makeProfile({ id: 'yo', likes: [], updatedAt: 100 });
+    const ellaRemoto = makeProfile({ id: 'ella', likes: ['garbanzos'], updatedAt: 200 });
+
+    const merged = mergeProfileLists([yoLocal, ellaLocal], [yoRemoto, ellaRemoto]);
+    expect(merged.find((p) => p.id === 'yo')!.likes).toEqual(['salmon']);
+    expect(merged.find((p) => p.id === 'ella')!.likes).toEqual(['garbanzos']);
+  });
+
+  it('un miembro añadido en otro móvil aparece aquí', () => {
+    const merged = mergeProfileLists(
+      [makeProfile({ id: 'yo' })],
+      [makeProfile({ id: 'yo' }), makeProfile({ id: 'peque', name: 'Hugo' })],
+    );
+    expect(merged.map((p) => p.id).sort()).toEqual(['peque', 'yo']);
+  });
+
+  it('un miembro borrado no reaparece al sincronizar', () => {
+    const merged = mergeProfileLists(
+      [makeProfile({ id: 'yo' })],
+      [makeProfile({ id: 'yo' }), makeProfile({ id: 'fuera', updatedAt: 50 })],
+      { fuera: 100 }, // se borró después de su última edición
+    );
+    expect(merged.map((p) => p.id)).toEqual(['yo']);
+  });
+
+  it('nunca deja la familia vacía', () => {
+    const merged = mergeProfileLists([makeProfile({ id: 'yo', updatedAt: 10 })], [], { yo: 999 });
+    expect(merged.length).toBeGreaterThan(0);
+  });
+
+  it('los gustos se sincronizan de punta a punta (a través de mergeShared)', () => {
+    const local = state({
+      profiles: [makeProfile({ id: 'yo', dislikes: ['atun'], updatedAt: 300 })],
+      updatedAt: { profiles: 300 },
+    });
+    const remote = state({
+      profiles: [
+        makeProfile({ id: 'yo', dislikes: [], updatedAt: 100 }),
+        makeProfile({ id: 'ella', dislikes: ['champinon'], updatedAt: 400 }),
+      ],
+      updatedAt: { profiles: 400 },
+    });
+    const merged = mergeShared(local, remote);
+    expect(merged.profiles.find((p) => p.id === 'yo')!.dislikes).toEqual(['atun']);
+    expect(merged.profiles.find((p) => p.id === 'ella')!.dislikes).toEqual(['champinon']);
+  });
+});
+
 describe('fusión del estado compartido', () => {
   it('sin remoto, se queda el local', () => {
     const local = state({ updatedAt: { profiles: 5 } });
@@ -78,17 +132,30 @@ describe('fusión del estado compartido', () => {
 
   it('gana la versión más reciente de cada sección', () => {
     const local = state({
-      profiles: [makeProfile({ id: 'a', name: 'Local' })],
-      updatedAt: { profiles: 100, pantry: 50 },
+      selectedPlanId: 'plan-local',
+      updatedAt: { selectedPlanId: 100, pantry: 50 },
     });
     const remote = state({
-      profiles: [makeProfile({ id: 'b', name: 'Remoto' })],
+      selectedPlanId: 'plan-remoto',
       pantry: [{ id: 'p1', raw: 'x', ingredientKey: 'tomate', displayName: 'Tomate', source: 'manual', addedAt: 0 }],
-      updatedAt: { profiles: 50, pantry: 100 },
+      updatedAt: { selectedPlanId: 50, pantry: 100 },
     });
     const merged = mergeShared(local, remote);
-    expect(merged.profiles[0].name).toBe('Local'); // el local es más nuevo
+    expect(merged.selectedPlanId).toBe('plan-local'); // el local es más nuevo
     expect(merged.pantry.length).toBe(1); // el remoto es más nuevo
+  });
+
+  it('los miembros NO se pisan entre sí: se conservan los de ambos móviles', () => {
+    const local = state({
+      profiles: [makeProfile({ id: 'a', name: 'Local', updatedAt: 100 })],
+      updatedAt: { profiles: 100 },
+    });
+    const remote = state({
+      profiles: [makeProfile({ id: 'b', name: 'Remoto', updatedAt: 50 })],
+      updatedAt: { profiles: 50 },
+    });
+    const merged = mergeShared(local, remote);
+    expect(merged.profiles.map((p) => p.name).sort()).toEqual(['Local', 'Remoto']);
   });
 
   it('cada sección se resuelve por separado (no se pisa todo el estado)', () => {

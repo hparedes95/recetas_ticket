@@ -154,6 +154,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   // marca de tiempo por sección: qué cambió y cuándo (para fusionar)
   const [updatedAt, setUpdatedAt] = useState<Record<string, number>>({});
+  const [deletedProfiles, setDeletedProfiles] = useState<Record<string, number>>({});
   const touch = useCallback((section: string) => {
     setUpdatedAt((prev) => ({ ...prev, [section]: Date.now() }));
   }, []);
@@ -259,21 +260,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // --- gestión de miembros de la familia ---
   const addProfile = useCallback((patch: Partial<Profile> = {}) => {
-    setProfiles((prev) => [...prev, makeProfile(patch)]);
+    setProfiles((prev) => [...prev, makeProfile({ ...patch, updatedAt: Date.now() })]);
     touch('profiles');
   }, [touch]);
   const updateProfile = useCallback((id: string, patch: Partial<Profile>) => {
-    setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    // sellamos la hora para poder fusionar por PERSONA al sincronizar
+    setProfiles((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...patch, updatedAt: Date.now() } : p)),
+    );
     touch('profiles');
   }, [touch]);
   const removeProfile = useCallback((id: string) => {
+    setDeletedProfiles((prev) => ({ ...prev, [id]: Date.now() }));
+    touch('profiles');
     setProfiles((prev) => {
       if (prev.length <= 1) return prev; // siempre queda alguien
       const next = prev.filter((p) => p.id !== id);
       if (!next.some((p) => p.isReference)) next[0] = { ...next[0], isReference: true };
       return next;
     });
-  }, []);
+  }, [touch]);
   const setReferenceProfile = useCallback((id: string) => {
     setProfiles((prev) => prev.map((p) => ({ ...p, isReference: p.id === id })));
   }, []);
@@ -491,8 +497,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const buildShared = useCallback(
     (): SharedState => ({
       profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt,
+      deletedProfiles,
     }),
-    [profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt],
+    [profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt, deletedProfiles],
   );
 
   /** Aplica al estado local el resultado de fusionar con la nube. */
@@ -505,6 +512,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setShopping(merged.shopping ?? []);
     setGeneratedRecipes(merged.generatedRecipes ?? {});
     setUpdatedAt(merged.updatedAt ?? {});
+    setDeletedProfiles(merged.deletedProfiles ?? {});
   }, []);
 
   /** Descarga, fusiona y vuelve a subir: deja los dos móviles iguales. */

@@ -30,6 +30,8 @@ export interface SharedState {
   generatedRecipes: Record<string, Recipe>;
   /** marca de tiempo por sección, para saber qué versión es más nueva */
   updatedAt: Record<string, number>;
+  /** Perfiles borrados (id → cuándo), para que no reaparezcan al sincronizar */
+  deletedProfiles?: Record<string, number>;
 }
 
 export interface SyncConfig {
@@ -117,8 +119,37 @@ export function mergeShopping(local: ShoppingItem[], remote: ShoppingItem[]): Sh
   return [...byKey.values()];
 }
 
+/**
+ * Fusiona la lista de miembros PERSONA A PERSONA (no la lista entera): si cada
+ * uno edita sus gustos en su móvil a la vez, no se pierde ninguno de los dos.
+ * Gana la versión más reciente de CADA miembro.
+ */
+export function mergeProfileLists(
+  local: Profile[],
+  remote: Profile[],
+  deleted: Record<string, number> = {},
+): Profile[] {
+  const byId = new Map<string, Profile>();
+  for (const p of remote) byId.set(p.id, p);
+  for (const p of local) {
+    const other = byId.get(p.id);
+    if (!other) {
+      byId.set(p.id, p);
+      continue;
+    }
+    // se queda el más reciente de los dos
+    byId.set(p.id, (p.updatedAt ?? 0) >= (other.updatedAt ?? 0) ? p : other);
+  }
+  // los borrados no reaparecen (salvo que se hayan editado después de borrarlos)
+  const out = [...byId.values()].filter((p) => {
+    const delAt = deleted[p.id];
+    return delAt === undefined || (p.updatedAt ?? 0) > delAt;
+  });
+  // nunca dejamos la familia vacía
+  return out.length > 0 ? out : local;
+}
+
 const SECTIONS = [
-  'profiles',
   'household',
   'pantry',
   'plans',
@@ -141,6 +172,15 @@ export function mergeShared(local: SharedState, remote: SharedState | null): Sha
       out.updatedAt[key] = rt;
     }
   }
+  // los miembros se fusionan uno a uno (los gustos de cada cual son suyos)
+  const deleted = { ...(remote.deletedProfiles ?? {}), ...(local.deletedProfiles ?? {}) };
+  out.deletedProfiles = deleted;
+  out.profiles = mergeProfileLists(local.profiles ?? [], remote.profiles ?? [], deleted);
+  out.updatedAt.profiles = Math.max(
+    local.updatedAt?.profiles ?? 0,
+    remote.updatedAt?.profiles ?? 0,
+  );
+
   out.shopping = mergeShopping(local.shopping ?? [], remote.shopping ?? []);
   out.updatedAt.shopping = Math.max(
     local.updatedAt?.shopping ?? 0,

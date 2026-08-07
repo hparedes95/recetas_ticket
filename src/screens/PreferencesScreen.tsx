@@ -21,6 +21,8 @@ export default function PreferencesScreen() {
   const nav = useNavigation<Nav>();
   const { preferences, updatePreferences, regeneratePlans, profiles } = useApp();
   const p = preferences;
+  // "yo" = el perfil de referencia (uso individual o familiar)
+  const me = profiles.find((x) => x.isReference) ?? profiles[0];
 
   const toggleMeal = (s: MealSlot) => {
     const next = p.mealsPerDay.includes(s)
@@ -78,6 +80,25 @@ export default function PreferencesScreen() {
           />
         ))}
       </View>
+
+      <SectionTitle>Mis gustos</SectionTitle>
+      <Card>
+        <Text style={styles.tasteHint}>
+          Elige lo que te encanta y lo que no quieres ver en tus comidas. Si compartes la app con
+          tu familia, tus gustos se sincronizan con los demás móviles.
+        </Text>
+        <View style={{ height: spacing.sm }} />
+        <AppButton
+          title={
+            (me?.likes.length ?? 0) + (me?.dislikes.length ?? 0) > 0
+              ? `Editar mis gustos (❤️ ${me?.likes.length ?? 0} · 🚫 ${me?.dislikes.length ?? 0})`
+              : 'Elegir alimentos que me gustan y que no'
+          }
+          icon="🍽️"
+          variant="secondary"
+          onPress={() => nav.navigate('Tastes', me ? { profileId: me.id } : undefined)}
+        />
+      </Card>
 
       <SectionTitle>Mi familia</SectionTitle>
       <Card>

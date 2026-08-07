@@ -69,6 +69,8 @@ export interface Profile {
   activeInPlan: boolean;
   /** Perfil de referencia: el menú se afina a sus calorías */
   isReference?: boolean;
+  /** Última modificación (ms). Permite fusionar por persona al sincronizar. */
+  updatedAt?: number;
 }
 
 /** Ajustes que son del HOGAR, no de una persona concreta */

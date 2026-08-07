@@ -54,6 +54,8 @@ export function makeProfile(patch: Partial<Profile> = {}): Profile {
     macroSplit: patch.macroSplit ?? null,
     activeInPlan: patch.activeInPlan ?? true,
     isReference: patch.isReference,
+    // se conserva para poder fusionar por persona al sincronizar
+    updatedAt: patch.updatedAt,
   };
 }
 
