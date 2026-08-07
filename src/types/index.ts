@@ -47,6 +47,39 @@ export interface Preferences {
   onboarded: boolean;
 }
 
+/** Etapa vital de un miembro: determina el tamaño de ración por defecto */
+export type AgeGroup = 'adulto' | 'adolescente' | 'nino';
+
+/** Un miembro de la familia, con sus gustos y objetivos propios */
+export interface Profile {
+  id: string;
+  name: string;
+  emoji: string;
+  ageGroup: AgeGroup;
+  /** Restricciones dietéticas de esta persona */
+  restrictions: DietTag[];
+  /** Alimentos que NO quiere (vetan el plato para toda la familia) */
+  dislikes: string[];
+  /** Alimentos favoritos (se priorizan en el menú) */
+  likes: string[];
+  /** Objetivo de calorías propio (null = automático por edad) */
+  calorieTarget: number | null;
+  macroSplit: MacroSplit | null;
+  /** Si come en casa esta semana (si no, no cuenta para el menú ni la compra) */
+  activeInPlan: boolean;
+  /** Perfil de referencia: el menú se afina a sus calorías */
+  isReference?: boolean;
+}
+
+/** Ajustes que son del HOGAR, no de una persona concreta */
+export interface HouseholdSettings {
+  defaultGoal: DietGoal;
+  mealsPerDay: MealSlot[];
+  aiApiKey: string | null;
+  useAI: boolean;
+  onboarded: boolean;
+}
+
 /** Un producto tal cual aparece en el ticket / lo añade el usuario */
 export interface Product {
   id: string;
@@ -130,6 +163,10 @@ export interface MealPlan {
   /** Reparto de macros objetivo con el que se generó (si lo había) */
   macroSplit?: MacroSplit | null;
   createdAt: number;
+  /** Miembros de la familia para los que se generó este plan */
+  profileIds?: string[];
+  /** Factor de ración por miembro y día: [profileId] → 7 factores */
+  portionByProfile?: Record<string, number[]>;
 }
 
 /** Item de la lista de la compra sugerida */
