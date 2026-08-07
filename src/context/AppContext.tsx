@@ -28,6 +28,15 @@ import {
   portionFactorsFor,
   activeProfiles,
 } from '../engine/household';
+import {
+  SyncConfig,
+  SyncStatus,
+  SharedState,
+  pullShared,
+  pushShared,
+  mergeShared,
+  testConnection,
+} from '../engine/sync';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { goalMeta } from '../theme';
@@ -74,6 +83,10 @@ interface PersistedState {
   household?: HouseholdSettings;
   /** Versión del esquema guardado */
   schemaVersion?: number;
+  /** Configuración de sincronización familiar (si está activada) */
+  sync?: SyncConfig | null;
+  /** Marcas de tiempo por sección, para fusionar entre dispositivos */
+  updatedAt?: Record<string, number>;
 }
 
 interface AppContextValue extends PersistedState {
@@ -86,6 +99,14 @@ interface AppContextValue extends PersistedState {
   removeProfile: (id: string) => void;
   setReferenceProfile: (id: string) => void;
   updateHousehold: (patch: Partial<HouseholdSettings>) => void;
+  // sincronización familiar
+  sync: SyncConfig | null;
+  syncStatus: SyncStatus;
+  syncError: string | null;
+  lastSyncAt: number | null;
+  enableSync: (cfg: SyncConfig) => Promise<void>;
+  disableSync: () => void;
+  syncNow: () => Promise<void>;
   // preferencias (derivadas del hogar; se mantienen por compatibilidad)
   updatePreferences: (patch: Partial<Preferences>) => void;
   completeOnboarding: (prefs: Partial<Preferences>) => void;
@@ -126,6 +147,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [generatedRecipes, setGeneratedRecipes] = useState<Record<string, Recipe>>({});
   const [generating, setGenerating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // --- sincronización familiar ---
+  const [sync, setSync] = useState<SyncConfig | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('off');
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  // marca de tiempo por sección: qué cambió y cuándo (para fusionar)
+  const [updatedAt, setUpdatedAt] = useState<Record<string, number>>({});
+  const touch = useCallback((section: string) => {
+    setUpdatedAt((prev) => ({ ...prev, [section]: Date.now() }));
+  }, []);
 
   /** Preferencias EFECTIVAS del hogar: es lo que consume el motor de recetas. */
   const preferences = useMemo(
@@ -179,6 +210,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (parsed.shopping) setShopping(parsed.shopping);
           if (parsed.aiRecipes) setAiRecipes(parsed.aiRecipes);
           if (parsed.generatedRecipes) setGeneratedRecipes(parsed.generatedRecipes);
+          if (parsed.sync) { setSync(parsed.sync); setSyncStatus('ok'); }
+          if (parsed.updatedAt) setUpdatedAt(parsed.updatedAt);
         }
       } catch (e) {
         // Si algo falla, empezamos limpios
@@ -195,12 +228,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const state: PersistedState = {
       preferences, // derivadas: compat con versiones antiguas de la app
       pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes,
-      profiles, household, schemaVersion: 2,
+      profiles, household, schemaVersion: 2, sync, updatedAt,
     };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch((e) =>
       console.warn('No se pudo guardar el estado', e),
     );
-  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes, profiles, household]);
+  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes, profiles, household, sync, updatedAt]);
 
   /** Compat: enruta cada campo al hogar o al miembro de referencia. */
   const updatePreferences = useCallback((patch: Partial<Preferences>) => {
@@ -227,10 +260,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // --- gestión de miembros de la familia ---
   const addProfile = useCallback((patch: Partial<Profile> = {}) => {
     setProfiles((prev) => [...prev, makeProfile(patch)]);
-  }, []);
+    touch('profiles');
+  }, [touch]);
   const updateProfile = useCallback((id: string, patch: Partial<Profile>) => {
     setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-  }, []);
+    touch('profiles');
+  }, [touch]);
   const removeProfile = useCallback((id: string) => {
     setProfiles((prev) => {
       if (prev.length <= 1) return prev; // siempre queda alguien
@@ -244,7 +279,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const updateHousehold = useCallback((patch: Partial<HouseholdSettings>) => {
     setHousehold((prev) => ({ ...prev, ...patch }));
-  }, []);
+    touch('household');
+  }, [touch]);
 
   const completeOnboarding = useCallback(
     (prefs: Partial<Preferences>) => {
@@ -260,13 +296,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const toAdd = products.filter((p) => !existing.has(p.ingredientKey));
       return [...toAdd, ...prev];
     });
-  }, []);
+    touch('pantry');
+  }, [touch]);
 
   const removeProduct = useCallback((id: string) => {
     setPantry((prev) => prev.filter((p) => p.id !== id));
-  }, []);
+    touch('pantry');
+  }, [touch]);
 
-  const clearPantry = useCallback(() => setPantry([]), []);
+  const clearPantry = useCallback(() => { setPantry([]); touch('pantry'); }, [touch]);
 
   const regeneratePlans = useCallback((): MealPlan[] => {
     // Motor generativo local: crea recetas nuevas a partir de la despensa para dar
@@ -427,7 +465,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setShopping((prev) =>
       prev.map((it) => (it.key === key ? { ...it, checked: !it.checked } : it)),
     );
-  }, []);
+    touch('shopping');
+  }, [touch]);
 
   const addBoughtToPantry = useCallback((): number => {
     const bought = shopping.filter((it) => it.checked);
@@ -445,7 +484,87 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return bought.length;
   }, [shopping, addProducts]);
 
+
+  // --- Sincronización familiar entre dispositivos ---
+
+  /** Estado compartido actual de este móvil. */
+  const buildShared = useCallback(
+    (): SharedState => ({
+      profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt,
+    }),
+    [profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt],
+  );
+
+  /** Aplica al estado local el resultado de fusionar con la nube. */
+  const applyShared = useCallback((merged: SharedState) => {
+    setProfiles(merged.profiles ?? []);
+    setHousehold((prev) => merged.household ?? prev);
+    setPantry(merged.pantry ?? []);
+    setPlans(merged.plans ?? []);
+    setSelectedPlanId(merged.selectedPlanId ?? null);
+    setShopping(merged.shopping ?? []);
+    setGeneratedRecipes(merged.generatedRecipes ?? {});
+    setUpdatedAt(merged.updatedAt ?? {});
+  }, []);
+
+  /** Descarga, fusiona y vuelve a subir: deja los dos móviles iguales. */
+  const syncNow = useCallback(async () => {
+    if (!sync) return;
+    setSyncStatus('syncing');
+    setSyncError(null);
+    try {
+      const remote = await pullShared(sync);
+      const merged = mergeShared(buildShared(), remote);
+      applyShared(merged);
+      await pushShared(sync, merged);
+      setLastSyncAt(Date.now());
+      setSyncStatus('ok');
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : 'No se pudo sincronizar.');
+      setSyncStatus('error');
+    }
+  }, [sync, buildShared, applyShared]);
+
+  /** Activa la sincronización (crear familia o unirse con un código). */
+  const enableSync = useCallback(
+    async (cfg: SyncConfig) => {
+      setSyncStatus('syncing');
+      setSyncError(null);
+      try {
+        await testConnection(cfg);
+        const remote = await pullShared(cfg);
+        const merged = mergeShared(buildShared(), remote);
+        applyShared(merged);
+        await pushShared(cfg, merged);
+        setSync(cfg);
+        setLastSyncAt(Date.now());
+        setSyncStatus('ok');
+      } catch (e) {
+        setSyncError(e instanceof Error ? e.message : 'No se pudo conectar.');
+        setSyncStatus('error');
+        throw e;
+      }
+    },
+    [buildShared, applyShared],
+  );
+
+  const disableSync = useCallback(() => {
+    setSync(null);
+    setSyncStatus('off');
+    setSyncError(null);
+  }, []);
+
+  // Sincroniza al arrancar y cada 30 s mientras la sincronización esté activa.
+  useEffect(() => {
+    if (!hydrated || !sync) return;
+    void syncNow();
+    const id = setInterval(() => void syncNow(), 30000);
+    return () => clearInterval(id);
+    // syncNow cambia con el estado; el intervalo usa siempre la última versión
+  }, [hydrated, sync?.databaseUrl, sync?.familyCode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const clearShopping = useCallback(() => setShopping([]), []);
+
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -463,6 +582,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeProfile,
       setReferenceProfile,
       updateHousehold,
+      sync,
+      syncStatus,
+      syncError,
+      lastSyncAt,
+      enableSync,
+      disableSync,
+      syncNow,
       hydrated,
       updatePreferences,
       completeOnboarding,
@@ -484,7 +610,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [
       preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes,
       profiles, household, addProfile, updateProfile, removeProfile, setReferenceProfile,
-      updateHousehold, hydrated, updatePreferences, completeOnboarding, addProducts, removeProduct, clearPantry,
+      updateHousehold, sync, syncStatus, syncError, lastSyncAt, enableSync, disableSync, syncNow,
+      updatedAt, hydrated, updatePreferences, completeOnboarding, addProducts, removeProduct, clearPantry,
       regeneratePlans, recommendWeek, selectPlan, selectedPlan, getRecipe, generating, generateAIPlan,
       buildShoppingFromSelected, toggleShoppingItem, addBoughtToPantry, clearShopping,
     ],

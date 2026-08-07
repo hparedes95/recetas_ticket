@@ -19,6 +19,7 @@ import PlanDetailScreen from '../screens/PlanDetailScreen';
 import TastesScreen from '../screens/TastesScreen';
 import HouseholdScreen from '../screens/HouseholdScreen';
 import ProfileEditScreen from '../screens/ProfileEditScreen';
+import FamilySyncScreen from '../screens/FamilySyncScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -95,6 +96,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Tastes" component={TastesScreen} options={{ title: 'Gustos' }} />
           <Stack.Screen name="Household" component={HouseholdScreen} options={{ title: 'Mi familia' }} />
           <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: 'Persona' }} />
+          <Stack.Screen name="FamilySync" component={FamilySyncScreen} options={{ title: 'Compartir' }} />
         </>
       )}
     </Stack.Navigator>

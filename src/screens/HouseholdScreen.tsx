@@ -25,7 +25,7 @@ const AGE_LABEL: Record<string, string> = {
 /** Pantalla "Mi familia": quién come en casa y los gustos de cada uno. */
 export default function HouseholdScreen() {
   const nav = useNavigation<Nav>();
-  const { profiles, household, addProfile, updateProfile } = useApp();
+  const { profiles, household, addProfile, updateProfile, sync } = useApp();
 
   const raciones = householdServings(profiles);
   const pool = poolSizeFor(profiles, household);
@@ -104,6 +104,22 @@ export default function HouseholdScreen() {
         onPress={() => addProfile({ name: `Persona ${profiles.length + 1}` })}
       />
 
+      <SectionTitle>Compartir entre móviles</SectionTitle>
+      <Card>
+        <Text style={styles.shareHint}>
+          {sync
+            ? 'Este móvil comparte los datos con tu familia. Todos veis los mismos planes y la misma lista.'
+            : 'Conecta el móvil de tu pareja para que veáis los mismos planes y la misma lista de la compra.'}
+        </Text>
+        <View style={{ height: spacing.sm }} />
+        <AppButton
+          title={sync ? 'Ver la sincronización' : 'Compartir con mi familia'}
+          icon="📱"
+          variant="secondary"
+          onPress={() => nav.navigate('FamilySync')}
+        />
+      </Card>
+
       <View style={{ height: spacing.xxl }} />
     </Screen>
   );
@@ -141,4 +157,5 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: font.size.xs, color: colors.primaryDark, fontWeight: font.weight.bold },
   toggleTextOff: { color: colors.textFaint },
   tastesLink: { fontSize: font.size.sm, color: colors.primary, fontWeight: font.weight.bold },
+  shareHint: { fontSize: font.size.xs, color: colors.textMuted, lineHeight: 18 },
 });

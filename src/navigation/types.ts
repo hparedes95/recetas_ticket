@@ -18,4 +18,5 @@ export type RootStackParamList = {
   Tastes: { profileId: string } | undefined;
   Household: undefined;
   ProfileEdit: { profileId: string };
+  FamilySync: undefined;
 };
