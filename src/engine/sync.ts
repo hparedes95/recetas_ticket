@@ -16,6 +16,15 @@
 //
 // Lógica pura (sin React Native) → testeable en node.
 import { MealPlan, Product, Profile, HouseholdSettings, Recipe, ShoppingItem } from '../types';
+import {
+  asMap,
+  reviveHousehold,
+  revivePantry,
+  revivePlans,
+  reviveProfiles,
+  reviveRecipeMap,
+  reviveShopping,
+} from './revive';
 
 const TIMEOUT_MS = 15000;
 
@@ -86,9 +95,38 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/**
+ * Reconstruye la forma del estado que vuelve de Firebase.
+ *
+ * Firebase NO guarda los valores vacíos: un `[]` equivale a borrar la clave. Un
+ * perfil sin manías se sube con `dislikes: []` y se descarga SIN `dislikes`, y
+ * el primer `p.dislikes.includes(...)` tumba la app entera. Aquí se le devuelve
+ * la forma a todo antes de que llegue al estado.
+ */
+export function reviveShared(raw: unknown, fallbackHousehold: HouseholdSettings): SharedState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Partial<SharedState>;
+  return {
+    profiles: reviveProfiles(s.profiles),
+    household: reviveHousehold(s.household, fallbackHousehold),
+    pantry: revivePantry(s.pantry),
+    plans: revivePlans(s.plans),
+    selectedPlanId: s.selectedPlanId ?? null,
+    shopping: reviveShopping(s.shopping),
+    generatedRecipes: reviveRecipeMap(s.generatedRecipes),
+    aiRecipes: reviveRecipeMap(s.aiRecipes),
+    updatedAt: asMap<number>(s.updatedAt),
+    deletedProfiles: asMap<number>(s.deletedProfiles),
+  };
+}
+
 /** Descarga el estado de la familia (null si aún no hay nada guardado). */
-export async function pullShared(cfg: SyncConfig): Promise<SharedState | null> {
-  return await request<SharedState | null>(endpoint(cfg));
+export async function pullShared(
+  cfg: SyncConfig,
+  fallbackHousehold: HouseholdSettings,
+): Promise<SharedState | null> {
+  const raw = await request<unknown>(endpoint(cfg));
+  return reviveShared(raw, fallbackHousehold);
 }
 
 /** Sube el estado de la familia (sobrescribe, tras haber fusionado). */

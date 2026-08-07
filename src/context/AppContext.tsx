@@ -38,6 +38,14 @@ import {
   mergeShared,
   testConnection,
 } from '../engine/sync';
+import {
+  reviveHousehold,
+  revivePantry,
+  revivePlans,
+  reviveProfiles,
+  reviveRecipeMap,
+  reviveShopping,
+} from '../engine/revive';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { goalMeta } from '../theme';
@@ -175,9 +183,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(raw) as Partial<PersistedState>;
           // Migración v1 → v2: el estado antiguo tenía UNAS preferencias sueltas;
           // ahora hay miembros + ajustes del hogar. Convertimos sin perder nada.
-          if (parsed.profiles && parsed.profiles.length > 0) {
-            setProfiles(parsed.profiles);
-            setHousehold({ ...DEFAULT_HOUSEHOLD, ...(parsed.household ?? {}) });
+          // Todo lo que sale del disco pasa por la reparación de forma: puede
+          // venir de una sincronización antigua a la que Firebase le quitó los
+          // arrays vacíos, y entonces cualquier `.includes()` tumbaría la app.
+          const savedProfiles = reviveProfiles(parsed.profiles);
+          if (savedProfiles.length > 0) {
+            setProfiles(savedProfiles);
+            setHousehold(reviveHousehold(parsed.household, DEFAULT_HOUSEHOLD));
           } else if (parsed.preferences) {
             const old = { ...DEFAULT_PREFERENCES, ...parsed.preferences };
             const migrated: Profile[] = [
@@ -206,12 +218,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               onboarded: old.onboarded,
             });
           }
-          if (parsed.pantry) setPantry(parsed.pantry);
-          if (parsed.plans) setPlans(parsed.plans);
+          if (parsed.pantry) setPantry(revivePantry(parsed.pantry));
+          if (parsed.plans) setPlans(revivePlans(parsed.plans));
           if (parsed.selectedPlanId !== undefined) setSelectedPlanId(parsed.selectedPlanId);
-          if (parsed.shopping) setShopping(parsed.shopping);
-          if (parsed.aiRecipes) setAiRecipes(parsed.aiRecipes);
-          if (parsed.generatedRecipes) setGeneratedRecipes(parsed.generatedRecipes);
+          if (parsed.shopping) setShopping(reviveShopping(parsed.shopping));
+          if (parsed.aiRecipes) setAiRecipes(reviveRecipeMap(parsed.aiRecipes));
+          if (parsed.generatedRecipes) setGeneratedRecipes(reviveRecipeMap(parsed.generatedRecipes));
           if (parsed.sync) { setSync(parsed.sync); setSyncStatus('ok'); }
           if (parsed.updatedAt) setUpdatedAt(parsed.updatedAt);
         }
@@ -541,7 +553,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSyncStatus('syncing');
     setSyncError(null);
     try {
-      const remote = await pullShared(sync);
+      const remote = await pullShared(sync, household);
       const merged = mergeShared(buildShared(), remote);
       applyShared(merged);
       await pushShared(sync, merged);
@@ -551,7 +563,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSyncError(e instanceof Error ? e.message : 'No se pudo sincronizar.');
       setSyncStatus('error');
     }
-  }, [sync, buildShared, applyShared]);
+  }, [sync, household, buildShared, applyShared]);
 
   /** Activa la sincronización (crear familia o unirse con un código). */
   const enableSync = useCallback(
@@ -560,7 +572,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSyncError(null);
       try {
         await testConnection(cfg);
-        const remote = await pullShared(cfg);
+        const remote = await pullShared(cfg, household);
         const merged = mergeShared(buildShared(), remote);
         applyShared(merged);
         await pushShared(cfg, merged);
@@ -573,7 +585,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         throw e;
       }
     },
-    [buildShared, applyShared],
+    [household, buildShared, applyShared],
   );
 
   const disableSync = useCallback(() => {
