@@ -4,7 +4,7 @@ import { Linking, Share, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Screen, Title, Subtitle, Card, AppButton, SectionTitle } from '../components/ui';
 import { colors, spacing, font, radius } from '../theme';
 import { useApp } from '../context/AppContext';
-import { generateFamilyCode, normalizeFamilyCode } from '../engine/sync';
+import { generateFamilyCode, normalizeFamilyCode, diagnose, Diagnosis } from '../engine/sync';
 import { confirmAction, notify } from '../utils/dialog';
 
 /**
@@ -16,6 +16,22 @@ export default function FamilySyncScreen() {
   const [dbUrl, setDbUrl] = useState(sync?.databaseUrl ?? '');
   const [code, setCode] = useState(sync?.familyCode ?? '');
   const [busy, setBusy] = useState(false);
+  const [diag, setDiag] = useState<Diagnosis | null>(null);
+
+  /** Prueba real de escritura+lectura, para saber QUÉ falla exactamente. */
+  const probar = async () => {
+    setBusy(true);
+    setDiag(null);
+    try {
+      const res = await diagnose({
+        databaseUrl: dbUrl.trim(),
+        familyCode: normalizeFamilyCode(code || 'PRUEBA-DIAGNOSTICO'),
+      });
+      setDiag(res);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const connect = async (familyCode: string) => {
     const url = dbUrl.trim();
@@ -109,12 +125,15 @@ export default function FamilySyncScreen() {
           <Card>
             <Text style={styles.hint}>
               Crea un proyecto gratis en Firebase, activa <Text style={styles.b}>Realtime
-              Database</Text> y pega aquí su dirección.
+              Database</Text> y pega aquí su dirección <Text style={styles.b}>tal cual aparece en la
+              consola</Text>. Ojo con la región: si la creaste en Europa termina en{' '}
+              <Text style={styles.b}>.europe-west1.firebasedatabase.app</Text>, no en
+              .firebaseio.com.
             </Text>
             <View style={{ height: spacing.sm }} />
             <TextInput
               style={styles.input}
-              placeholder="https://tu-proyecto.firebaseio.com"
+              placeholder="https://tu-proyecto-default-rtdb.…firebasedatabase.app"
               placeholderTextColor={colors.textFaint}
               value={dbUrl}
               onChangeText={setDbUrl}
@@ -168,6 +187,24 @@ export default function FamilySyncScreen() {
         </>
       )}
 
+      {diag ? (
+        <Card style={diag.ok ? styles.diagOk : styles.diagBad}>
+          <Text style={diag.ok ? styles.diagOkText : styles.diagBadText}>
+            {diag.ok ? '✅ ' : '⚠️ '}
+            {diag.message}
+          </Text>
+          <Text style={styles.diagDetail}>{diag.detail}</Text>
+        </Card>
+      ) : null}
+
+      <View style={{ height: spacing.sm }} />
+      <AppButton
+        title={busy ? 'Probando…' : 'Probar conexión'}
+        icon="🩺"
+        variant="ghost"
+        onPress={() => void probar()}
+      />
+
       <View style={{ height: spacing.xl }} />
       <Card style={{ backgroundColor: colors.cardAlt }}>
         <Text style={styles.hint}>
@@ -214,5 +251,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   errorCard: { backgroundColor: '#FEE2E2', marginTop: spacing.md },
+  diagOk: { backgroundColor: colors.primarySoft, marginTop: spacing.md },
+  diagBad: { backgroundColor: '#FEF3C7', marginTop: spacing.md },
+  diagOkText: { fontSize: font.size.sm, color: colors.primaryDark, lineHeight: 19 },
+  diagBadText: { fontSize: font.size.sm, color: '#92400E', lineHeight: 19 },
+  diagDetail: { fontSize: font.size.xs, color: colors.textMuted, marginTop: spacing.sm },
   errorText: { fontSize: font.size.sm, color: '#991B1B' },
 });

@@ -100,9 +100,114 @@ export async function pushShared(cfg: SyncConfig, state: SharedState): Promise<v
   });
 }
 
-/** Comprueba que la configuración funciona (se usa al crear/unirse). */
+export interface Diagnosis {
+  ok: boolean;
+  /** Mensaje legible para el usuario, explicando qué pasa y qué hacer */
+  message: string;
+  /** Detalle técnico (URL probada, código de error…) */
+  detail: string;
+}
+
+/**
+ * Prueba REAL de ida y vuelta: escribe un dato de prueba y lo vuelve a leer.
+ * Devuelve un diagnóstico claro, porque los fallos de configuración (región de
+ * la base de datos, reglas sin publicar…) son la causa habitual.
+ */
+export async function diagnose(cfg: SyncConfig): Promise<Diagnosis> {
+  const base = cfg.databaseUrl.trim().replace(/\/+$/, '');
+  // misma ruta que usa la sincronización real, para probar lo que de verdad se usa
+  const url = `${base}/familias/${encodeURIComponent(normalizeFamilyCode(cfg.familyCode))}/__prueba.json`;
+
+  if (!/^https:\/\//.test(base)) {
+    return {
+      ok: false,
+      message: 'La dirección debe empezar por https://',
+      detail: base || '(vacía)',
+    };
+  }
+  if (!/firebaseio\.com$|firebasedatabase\.app$/.test(base)) {
+    return {
+      ok: false,
+      message:
+        'Esa dirección no parece la de una Realtime Database. Debe terminar en ' +
+        'firebaseio.com o en firebasedatabase.app (cópiala de la consola de Firebase).',
+      detail: base,
+    };
+  }
+
+  const marca = Date.now();
+  try {
+    const put = await fetch(url, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(marca),
+    });
+    if (!put.ok) {
+      if (put.status === 401 || put.status === 403) {
+        return {
+          ok: false,
+          message:
+            'La base de datos rechaza la escritura: publica las reglas de seguridad ' +
+            '(o el modo de prueba ha caducado).',
+          detail: `HTTP ${put.status} al escribir en ${url}`,
+        };
+      }
+      if (put.status === 404) {
+        return {
+          ok: false,
+          message:
+            'No existe una base de datos en esa dirección. Ojo con la REGIÓN: si la creaste ' +
+            'en Europa, la dirección acaba en .europe-west1.firebasedatabase.app, no en ' +
+            '.firebaseio.com. Cópiala tal cual de la consola de Firebase.',
+          detail: `HTTP 404 en ${url}`,
+        };
+      }
+      return { ok: false, message: `Error al escribir (HTTP ${put.status}).`, detail: url };
+    }
+
+    const get = await fetch(url);
+    if (!get.ok) {
+      return { ok: false, message: `Error al leer (HTTP ${get.status}).`, detail: url };
+    }
+    const leido = await get.json();
+    if (leido !== marca) {
+      return {
+        ok: false,
+        message: 'Se escribió pero no se leyó lo mismo. Revisa las reglas de lectura.',
+        detail: `escrito ${marca}, leído ${JSON.stringify(leido)}`,
+      };
+    }
+    // limpieza: la marca de prueba no debe quedarse en los datos de la familia
+    try {
+      await fetch(url, { method: 'DELETE' });
+    } catch {
+      // si no se puede borrar, no es grave: es un valor suelto
+    }
+    return {
+      ok: true,
+      message: 'Conexión correcta: se puede escribir y leer en tu base de datos.',
+      detail: url,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message:
+        'No se pudo contactar con la base de datos. Revisa la dirección (y la región) y tu ' +
+        'conexión a internet.',
+      detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+    };
+  }
+}
+
+/**
+ * Comprueba que la configuración funciona ANTES de dar por buena la conexión.
+ * Hace una prueba de escritura+lectura, no solo de lectura: una base de datos
+ * que deja leer pero no escribir parecería conectada y luego no sincronizaría
+ * nada, que es justo el fallo silencioso que queremos evitar.
+ */
 export async function testConnection(cfg: SyncConfig): Promise<boolean> {
-  await pullShared(cfg);
+  const d = await diagnose(cfg);
+  if (!d.ok) throw new Error(d.message);
   return true;
 }
 

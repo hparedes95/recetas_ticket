@@ -6,6 +6,7 @@ import {
   mergeShopping,
   mergeShared,
   SharedState,
+  diagnose,
 } from '../sync';
 import { makeProfile } from '../household';
 import { HouseholdSettings, ShoppingItem } from '../../types';
@@ -228,5 +229,64 @@ describe('fusión del estado compartido', () => {
     const remote = state({ shopping: [item('arroz', true)], updatedAt: { shopping: 999 } });
     const merged = mergeShared(local, remote);
     expect(merged.shopping.map((i) => i.key).sort()).toEqual(['arroz', 'tomate']);
+  });
+});
+
+describe('diagnóstico de la conexión', () => {
+  const CFG = { databaseUrl: 'https://x-default-rtdb.firebaseio.com', familyCode: 'ABCD-EFGH' };
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('rechaza direcciones que no son de Realtime Database', async () => {
+    const d = await diagnose({ ...CFG, databaseUrl: 'https://console.firebase.google.com/project/x' });
+    expect(d.ok).toBe(false);
+    expect(d.message).toMatch(/firebasedatabase\.app/);
+  });
+
+  it('exige https', async () => {
+    const d = await diagnose({ ...CFG, databaseUrl: 'mi-proyecto.firebaseio.com' });
+    expect(d.ok).toBe(false);
+    expect(d.message).toMatch(/https/);
+  });
+
+  it('ante un 404 avisa de la REGIÓN (el fallo más habitual)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch;
+    const d = await diagnose(CFG);
+    expect(d.ok).toBe(false);
+    expect(d.message).toMatch(/europe-west1/);
+  });
+
+  it('ante un 401 avisa de las reglas de seguridad', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 }) as unknown as typeof fetch;
+    const d = await diagnose(CFG);
+    expect(d.ok).toBe(false);
+    expect(d.message).toMatch(/reglas/i);
+  });
+
+  it('da el visto bueno cuando se escribe y se lee lo mismo', async () => {
+    let escrito: unknown = null;
+    global.fetch = jest.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') {
+        escrito = JSON.parse(String(init.body));
+        return Promise.resolve({ ok: true, status: 200 });
+      }
+      if (init?.method === 'DELETE') return Promise.resolve({ ok: true, status: 200 });
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(escrito) });
+    }) as unknown as typeof fetch;
+    const d = await diagnose(CFG);
+    expect(d.ok).toBe(true);
+  });
+
+  it('detecta que se escribe pero no se lee lo mismo', async () => {
+    global.fetch = jest.fn().mockImplementation((_url: string, init?: RequestInit) =>
+      init?.method === 'PUT'
+        ? Promise.resolve({ ok: true, status: 200 })
+        : Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(null) }),
+    ) as unknown as typeof fetch;
+    const d = await diagnose(CFG);
+    expect(d.ok).toBe(false);
+    expect(d.message).toMatch(/lectura/i);
   });
 });
