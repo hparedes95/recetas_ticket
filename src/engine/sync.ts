@@ -28,6 +28,8 @@ export interface SharedState {
   selectedPlanId: string | null;
   shopping: ShoppingItem[];
   generatedRecipes: Record<string, Recipe>;
+  /** Recetas creadas con IA (también hacen falta para resolver los planes) */
+  aiRecipes?: Record<string, Recipe>;
   /** marca de tiempo por sección, para saber qué versión es más nueva */
   updatedAt: Record<string, number>;
   /** Perfiles borrados (id → cuándo), para que no reaparezcan al sincronizar */
@@ -149,12 +151,23 @@ export function mergeProfileLists(
   return out.length > 0 ? out : local;
 }
 
+/**
+ * Une dos diccionarios de recetas. Son una CACHÉ para poder resolver los ids de
+ * los planes: si se pisaran, el plan de un móvil llegaría al otro sin sus
+ * recetas y se verían huecos. Por eso se unen, nunca se sustituyen.
+ */
+export function mergeRecipeMaps(
+  local: Record<string, Recipe> = {},
+  remote: Record<string, Recipe> = {},
+): Record<string, Recipe> {
+  return { ...remote, ...local };
+}
+
 const SECTIONS = [
   'household',
   'pantry',
   'plans',
   'selectedPlanId',
-  'generatedRecipes',
 ] as const;
 
 /**
@@ -172,6 +185,10 @@ export function mergeShared(local: SharedState, remote: SharedState | null): Sha
       out.updatedAt[key] = rt;
     }
   }
+  // las recetas se UNEN: hacen falta para resolver los planes de ambos móviles
+  out.generatedRecipes = mergeRecipeMaps(local.generatedRecipes, remote.generatedRecipes);
+  out.aiRecipes = mergeRecipeMaps(local.aiRecipes, remote.aiRecipes);
+
   // los miembros se fusionan uno a uno (los gustos de cada cual son suyos)
   const deleted = { ...(remote.deletedProfiles ?? {}), ...(local.deletedProfiles ?? {}) };
   out.deletedProfiles = deleted;

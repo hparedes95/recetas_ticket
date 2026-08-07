@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -332,8 +333,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPlans(next);
     // seleccionamos por defecto el del objetivo preferido (primero)
     setSelectedPlanId(next.length ? next[0].id : null);
+    // marcamos los cambios para que viajen al resto de móviles de la familia
+    touch('plans');
+    touch('generatedRecipes');
+    touch('selectedPlanId');
     return next;
-  }, [pantry, preferences]);
+  }, [pantry, preferences, touch]);
 
   /**
    * Flujo "recomiéndame la semana" (inverso al del ticket): la app propone el
@@ -347,6 +352,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setGeneratedRecipes((prev) => ({ ...prev, ...recipes }));
       setPlans((prev) => [plan, ...prev]);
       setSelectedPlanId(plan.id);
+      touch('plans');
+      touch('generatedRecipes');
+      touch('selectedPlanId');
+      touch('shopping');
       setShopping(
         needs
           .filter((n) => !n.alreadyHave) // solo lo que hay que comprar
@@ -365,7 +374,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [preferences, pantry],
   );
 
-  const selectPlan = useCallback((id: string) => setSelectedPlanId(id), []);
+  const selectPlan = useCallback(
+    (id: string) => {
+      setSelectedPlanId(id);
+      touch('selectedPlanId');
+    },
+    [touch],
+  );
 
   const selectedPlan = useMemo(
     () => plans.find((p) => p.id === selectedPlanId) ?? null,
@@ -438,6 +453,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setAiRecipes((prev) => ({ ...prev, ...newRecipes }));
         setPlans((prev) => [plan, ...prev]);
         setSelectedPlanId(plan.id);
+        touch('plans');
+        touch('generatedRecipes');
+        touch('selectedPlanId');
         return plan;
       } finally {
         setGenerating(false);
@@ -487,6 +505,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
     addProducts(newProducts);
     setShopping((prev) => prev.filter((it) => !it.checked));
+    touch('shopping');
     return bought.length;
   }, [shopping, addProducts]);
 
@@ -496,10 +515,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /** Estado compartido actual de este móvil. */
   const buildShared = useCallback(
     (): SharedState => ({
-      profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt,
-      deletedProfiles,
+      profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, aiRecipes,
+      updatedAt, deletedProfiles,
     }),
-    [profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, updatedAt, deletedProfiles],
+    [profiles, household, pantry, plans, selectedPlanId, shopping, generatedRecipes, aiRecipes, updatedAt, deletedProfiles],
   );
 
   /** Aplica al estado local el resultado de fusionar con la nube. */
@@ -511,6 +530,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedPlanId(merged.selectedPlanId ?? null);
     setShopping(merged.shopping ?? []);
     setGeneratedRecipes(merged.generatedRecipes ?? {});
+    setAiRecipes(merged.aiRecipes ?? {});
     setUpdatedAt(merged.updatedAt ?? {});
     setDeletedProfiles(merged.deletedProfiles ?? {});
   }, []);
@@ -562,16 +582,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSyncError(null);
   }, []);
 
-  // Sincroniza al arrancar y cada 30 s mientras la sincronización esté activa.
+  // El temporizador debe llamar SIEMPRE a la última versión de syncNow: si usara
+  // la que existía al montar el efecto, subiría un estado ya caducado y pisaría
+  // los cambios del otro móvil.
+  const syncNowRef = useRef(syncNow);
+  useEffect(() => {
+    syncNowRef.current = syncNow;
+  }, [syncNow]);
+
+  // Sincroniza al arrancar y cada 20 s mientras la sincronización esté activa.
   useEffect(() => {
     if (!hydrated || !sync) return;
-    void syncNow();
-    const id = setInterval(() => void syncNow(), 30000);
+    void syncNowRef.current();
+    const id = setInterval(() => void syncNowRef.current(), 20000);
     return () => clearInterval(id);
-    // syncNow cambia con el estado; el intervalo usa siempre la última versión
-  }, [hydrated, sync?.databaseUrl, sync?.familyCode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hydrated, sync?.databaseUrl, sync?.familyCode]);
 
-  const clearShopping = useCallback(() => setShopping([]), []);
+  const clearShopping = useCallback(() => { setShopping([]); touch('shopping'); }, [touch]);
 
 
   const value = useMemo<AppContextValue>(

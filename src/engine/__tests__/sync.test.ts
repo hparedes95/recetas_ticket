@@ -1,4 +1,5 @@
 import {
+  mergeRecipeMaps,
   mergeProfileLists,
   generateFamilyCode,
   normalizeFamilyCode,
@@ -121,6 +122,58 @@ describe('fusión de los miembros (gustos de cada uno)', () => {
     const merged = mergeShared(local, remote);
     expect(merged.profiles.find((p) => p.id === 'yo')!.dislikes).toEqual(['atun']);
     expect(merged.profiles.find((p) => p.id === 'ella')!.dislikes).toEqual(['champinon']);
+  });
+});
+
+describe('sincronización del plan y sus recetas (caso real)', () => {
+  const receta = (id: string) => ({
+    id, name: id, slot: ['comida' as const], goals: ['saludable' as const], tags: [],
+    ingredients: [{ key: 'pollo', name: 'Pollo' }], steps: ['x'],
+    macros: { kcal: 400, protein: 30, carbs: 30, fat: 12 },
+    timeMinutes: 20, servings: 1, emoji: '🍽️',
+  });
+  const plan = (id: string, recipeId: string) => ({
+    id, goal: 'saludable' as const, title: id, subtitle: '',
+    meals: [{ day: 0, slot: 'comida' as const, recipeId, coverage: 1 }],
+    missing: [], avgDailyMacros: { kcal: 400, protein: 30, carbs: 30, fat: 12 },
+    createdAt: 1,
+  });
+
+  it('un plan generado en un móvil llega al otro CON sus recetas', () => {
+    // ella genera un plan en su móvil (con una receta generada)
+    const ella = state({
+      plans: [plan('plan-ella', 'gen-1')],
+      generatedRecipes: { 'gen-1': receta('gen-1') },
+      selectedPlanId: 'plan-ella',
+      updatedAt: { plans: 500, generatedRecipes: 500, selectedPlanId: 500 },
+    });
+    // yo no tengo nada nuevo
+    const yo = state({ updatedAt: { plans: 100 } });
+
+    const merged = mergeShared(yo, ella);
+    expect(merged.plans.map((p) => p.id)).toContain('plan-ella');
+    // y la receta del plan se puede resolver (si no, saldrían huecos)
+    for (const m of merged.plans[0].meals) {
+      expect(merged.generatedRecipes[m.recipeId]).toBeTruthy();
+    }
+  });
+
+  it('las recetas de los dos móviles se conservan (no se pisan)', () => {
+    const yo = state({
+      generatedRecipes: { mia: receta('mia') },
+      updatedAt: { generatedRecipes: 100 },
+    });
+    const ella = state({
+      generatedRecipes: { suya: receta('suya') },
+      updatedAt: { generatedRecipes: 900 },
+    });
+    const merged = mergeShared(yo, ella);
+    expect(Object.keys(merged.generatedRecipes).sort()).toEqual(['mia', 'suya']);
+  });
+
+  it('mergeRecipeMaps une sin perder ninguna', () => {
+    const m = mergeRecipeMaps({ a: receta('a') }, { b: receta('b') });
+    expect(Object.keys(m).sort()).toEqual(['a', 'b']);
   });
 });
 
