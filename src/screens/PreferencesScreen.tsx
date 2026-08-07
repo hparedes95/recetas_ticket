@@ -19,7 +19,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function PreferencesScreen() {
   const nav = useNavigation<Nav>();
-  const { preferences, updatePreferences, regeneratePlans } = useApp();
+  const { preferences, updatePreferences, regeneratePlans, profiles } = useApp();
   const p = preferences;
 
   const toggleMeal = (s: MealSlot) => {
@@ -53,13 +53,6 @@ export default function PreferencesScreen() {
         ))}
       </View>
 
-      <SectionTitle>Personas</SectionTitle>
-      <View style={styles.stepper}>
-        <AppButton title="−" variant="secondary" full={false} style={styles.stepBtn} onPress={() => updatePreferences({ people: Math.max(1, p.people - 1) })} />
-        <Text style={styles.stepValue}>{p.people}</Text>
-        <AppButton title="+" variant="secondary" full={false} style={styles.stepBtn} onPress={() => updatePreferences({ people: Math.min(8, p.people + 1) })} />
-      </View>
-
       <SectionTitle>Comidas a planificar</SectionTitle>
       <View style={styles.wrap}>
         {SLOTS.map((s) => (
@@ -86,21 +79,19 @@ export default function PreferencesScreen() {
         ))}
       </View>
 
-      <SectionTitle>Mis gustos</SectionTitle>
+      <SectionTitle>Mi familia</SectionTitle>
       <Card>
         <Text style={styles.tasteHint}>
-          Elige lo que te encanta y lo que no quieres ver en tus planes.
+          {profiles.length === 1
+            ? 'Añade a quien coma en casa: cada uno elige lo que le gusta y lo que no, y el menú los tiene en cuenta a todos.'
+            : `${profiles.length} personas · el menú evita lo que no le gusta a ninguna y cada una recibe su ración.`}
         </Text>
         <View style={{ height: spacing.sm }} />
         <AppButton
-          title={
-            (p.likes?.length ?? 0) + (p.dislikes?.length ?? 0) > 0
-              ? `Editar gustos (❤️ ${p.likes?.length ?? 0} · 🚫 ${p.dislikes?.length ?? 0})`
-              : 'Elegir alimentos'
-          }
-          icon="🍽️"
+          title={profiles.length === 1 ? 'Configurar mi familia' : `Ver la familia (${profiles.length})`}
+          icon="👨‍👩‍👧"
           variant="secondary"
-          onPress={() => nav.navigate('Tastes')}
+          onPress={() => nav.navigate('Household')}
         />
       </Card>
 

@@ -17,6 +17,8 @@ import AddTicketScreen from '../screens/AddTicketScreen';
 import ShoppingModeScreen from '../screens/ShoppingModeScreen';
 import PlanDetailScreen from '../screens/PlanDetailScreen';
 import TastesScreen from '../screens/TastesScreen';
+import HouseholdScreen from '../screens/HouseholdScreen';
+import ProfileEditScreen from '../screens/ProfileEditScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -90,7 +92,9 @@ export default function RootNavigator() {
           />
           <Stack.Screen name="PlanDetail" component={PlanDetailScreen} options={{ title: 'Plan semanal' }} />
           <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} options={{ title: 'Receta' }} />
-          <Stack.Screen name="Tastes" component={TastesScreen} options={{ title: 'Mis gustos' }} />
+          <Stack.Screen name="Tastes" component={TastesScreen} options={{ title: 'Gustos' }} />
+          <Stack.Screen name="Household" component={HouseholdScreen} options={{ title: 'Mi familia' }} />
+          <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: 'Persona' }} />
         </>
       )}
     </Stack.Navigator>

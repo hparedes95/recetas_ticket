@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 
 import { Screen, Title, Subtitle, Card, SectionTitle, AppButton } from '../components/ui';
 import { colors, spacing, font, radius } from '../theme';
@@ -7,6 +8,8 @@ import { useApp } from '../context/AppContext';
 import { INGREDIENTS } from '../data/ingredients';
 import { CATEGORY_META } from '../data/catalog';
 import { normalizeText } from '../data/ingredients';
+import { RootStackParamList } from '../navigation/types';
+import { poolSizeFor, POOL_WARN_THRESHOLD } from '../engine/household';
 
 type Taste = 'like' | 'dislike' | null;
 
@@ -14,12 +17,22 @@ type Taste = 'like' | 'dislike' | null;
  * Pantalla "Mis gustos": el usuario marca lo que le encanta (se prioriza en los
  * planes) y lo que no quiere ver (nunca aparece en sus comidas).
  */
+type Rt = RouteProp<RootStackParamList, 'Tastes'>;
+
 export default function TastesScreen() {
-  const { preferences, updatePreferences } = useApp();
+  const route = useRoute<Rt>();
+  const { profiles, household, updateProfile } = useApp();
   const [query, setQuery] = useState('');
 
-  const likes = new Set(preferences.likes ?? []);
-  const dislikes = new Set(preferences.dislikes ?? []);
+  // Si no llega un miembro por la ruta, editamos el de referencia (uso individual)
+  const profile =
+    profiles.find((p) => p.id === route.params?.profileId) ??
+    profiles.find((p) => p.isReference) ??
+    profiles[0];
+
+  const likes = new Set(profile?.likes ?? []);
+  const dislikes = new Set(profile?.dislikes ?? []);
+  const pool = poolSizeFor(profiles, household);
 
   const groups = useMemo(() => {
     const q = normalizeText(query);
@@ -54,14 +67,16 @@ export default function TastesScreen() {
     nextDislikes.delete(key);
     if (current === null) nextLikes.add(key);
     else if (current === 'like') nextDislikes.add(key);
-    updatePreferences({ likes: [...nextLikes], dislikes: [...nextDislikes] });
+    if (profile) updateProfile(profile.id, { likes: [...nextLikes], dislikes: [...nextDislikes] });
   };
 
-  const clearAll = () => updatePreferences({ likes: [], dislikes: [] });
+  const clearAll = () => {
+    if (profile) updateProfile(profile.id, { likes: [], dislikes: [] });
+  };
 
   return (
     <Screen scroll>
-      <Title>Mis gustos</Title>
+      <Title>{profile ? `Gustos de ${profile.name}` : 'Mis gustos'}</Title>
       <Subtitle>
         Toca un alimento para marcarlo. Una vez ❤️ te gusta (saldrá más), dos veces 🚫 no lo quieres
         (no aparecerá en tus planes), y otra vez lo dejas neutro.
@@ -88,6 +103,10 @@ export default function TastesScreen() {
               <Text style={styles.clear}>Limpiar</Text>
             </Pressable>
           </Card>
+          <Text style={[styles.pool, pool < POOL_WARN_THRESHOLD && styles.poolWarn]}>
+            Con los gustos de toda la familia quedan {pool} platos posibles
+            {pool < POOL_WARN_THRESHOLD ? ' ⚠️ el menú perderá variedad' : ''}
+          </Text>
         </>
       )}
 
@@ -152,6 +171,8 @@ const styles = StyleSheet.create({
   summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { fontSize: font.size.sm, color: colors.textMuted },
   clear: { fontSize: font.size.sm, color: colors.danger, fontWeight: font.weight.bold },
+  pool: { fontSize: font.size.xs, color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' },
+  poolWarn: { color: colors.warning, fontWeight: font.weight.bold },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   item: {
     flexDirection: 'row',

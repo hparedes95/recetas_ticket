@@ -15,5 +15,7 @@ export type RootStackParamList = {
   ShoppingMode: undefined;
   PlanDetail: { planId: string };
   RecipeDetail: { recipeId: string };
-  Tastes: undefined;
+  Tastes: { profileId: string } | undefined;
+  Household: undefined;
+  ProfileEdit: { profileId: string };
 };
