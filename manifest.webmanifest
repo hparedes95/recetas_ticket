@@ -1,0 +1,26 @@
+{
+  "name": "Recetas del Ticket",
+  "short_name": "Recetas",
+  "description": "Convierte el ticket de la compra en planes de comidas semanales.",
+  "lang": "es",
+  "start_url": "/recetas_ticket/",
+  "scope": "/recetas_ticket/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F8F6",
+  "theme_color": "#16A34A",
+  "icons": [
+    {
+      "src": "/recetas_ticket/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/recetas_ticket/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
