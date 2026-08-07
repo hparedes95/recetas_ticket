@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { MealPlan, MealSlot, PlannedMeal, Preferences, Product, Recipe, ShoppingItem } from '../types';
+import { HouseholdSettings, MealPlan, MealSlot, PlannedMeal, Preferences, Product, Profile, Recipe, ShoppingItem } from '../types';
 import {
   generatePlans as engineGeneratePlans,
   shoppingListFromPlan,
@@ -22,6 +22,12 @@ import {
 import { generateAIRecipesForSlot } from '../engine/aiRecipes';
 import { generateRecipes } from '../engine/generator';
 import { recommendPlan, shoppingNeedsFromPlan } from '../engine/recommend';
+import {
+  effectivePreferences,
+  makeProfile,
+  portionFactorsFor,
+  activeProfiles,
+} from '../engine/household';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { INGREDIENT_BY_KEY } from '../data/ingredients';
 import { goalMeta } from '../theme';
@@ -29,6 +35,14 @@ import { DietGoal } from '../types';
 import { newId } from '../engine/ticketParser';
 
 const STORAGE_KEY = '@recetas_ticket/state_v1';
+
+const DEFAULT_HOUSEHOLD: HouseholdSettings = {
+  defaultGoal: 'saludable',
+  mealsPerDay: ['desayuno', 'comida', 'cena'],
+  aiApiKey: null,
+  useAI: false,
+  onboarded: false,
+};
 
 const DEFAULT_PREFERENCES: Preferences = {
   people: 1,
@@ -54,11 +68,25 @@ interface PersistedState {
   aiRecipes: Record<string, Recipe>;
   /** Recetas del motor generativo local, para resolver sus ids en los planes */
   generatedRecipes: Record<string, Recipe>;
+  /** Miembros de la familia (v2). Si falta, se migra desde `preferences`. */
+  profiles?: Profile[];
+  /** Ajustes del hogar (v2) */
+  household?: HouseholdSettings;
+  /** Versión del esquema guardado */
+  schemaVersion?: number;
 }
 
 interface AppContextValue extends PersistedState {
   hydrated: boolean;
-  // preferencias
+  // familia
+  profiles: Profile[];
+  household: HouseholdSettings;
+  addProfile: (patch?: Partial<Profile>) => void;
+  updateProfile: (id: string, patch: Partial<Profile>) => void;
+  removeProfile: (id: string) => void;
+  setReferenceProfile: (id: string) => void;
+  updateHousehold: (patch: Partial<HouseholdSettings>) => void;
+  // preferencias (derivadas del hogar; se mantienen por compatibilidad)
   updatePreferences: (patch: Partial<Preferences>) => void;
   completeOnboarding: (prefs: Partial<Preferences>) => void;
   // despensa
@@ -86,7 +114,10 @@ interface AppContextValue extends PersistedState {
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
+  const [profiles, setProfiles] = useState<Profile[]>([
+    makeProfile({ id: 'me', name: 'Yo', emoji: '🙂', isReference: true }),
+  ]);
+  const [household, setHousehold] = useState<HouseholdSettings>(DEFAULT_HOUSEHOLD);
   const [pantry, setPantry] = useState<Product[]>([]);
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -96,6 +127,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [generating, setGenerating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  /** Preferencias EFECTIVAS del hogar: es lo que consume el motor de recetas. */
+  const preferences = useMemo(
+    () => effectivePreferences(household, profiles),
+    [household, profiles],
+  );
+
   // Cargar estado guardado al arrancar
   useEffect(() => {
     (async () => {
@@ -103,8 +140,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<PersistedState>;
-          if (parsed.preferences)
-            setPreferences({ ...DEFAULT_PREFERENCES, ...parsed.preferences });
+          // Migración v1 → v2: el estado antiguo tenía UNAS preferencias sueltas;
+          // ahora hay miembros + ajustes del hogar. Convertimos sin perder nada.
+          if (parsed.profiles && parsed.profiles.length > 0) {
+            setProfiles(parsed.profiles);
+            setHousehold({ ...DEFAULT_HOUSEHOLD, ...(parsed.household ?? {}) });
+          } else if (parsed.preferences) {
+            const old = { ...DEFAULT_PREFERENCES, ...parsed.preferences };
+            const migrated: Profile[] = [
+              makeProfile({
+                id: 'me',
+                name: 'Yo',
+                emoji: '🙂',
+                isReference: true,
+                restrictions: old.restrictions,
+                dislikes: old.dislikes,
+                likes: old.likes ?? [],
+                calorieTarget: old.calorieTarget,
+                macroSplit: old.macroSplit,
+              }),
+            ];
+            // si cocinaba para varios, creamos los miembros que faltan
+            for (let i = 1; i < Math.max(1, old.people); i++) {
+              migrated.push(makeProfile({ name: `Persona ${i + 1}`, emoji: '🙂' }));
+            }
+            setProfiles(migrated);
+            setHousehold({
+              defaultGoal: old.defaultGoal,
+              mealsPerDay: old.mealsPerDay,
+              aiApiKey: old.aiApiKey,
+              useAI: old.useAI,
+              onboarded: old.onboarded,
+            });
+          }
           if (parsed.pantry) setPantry(parsed.pantry);
           if (parsed.plans) setPlans(parsed.plans);
           if (parsed.selectedPlanId !== undefined) setSelectedPlanId(parsed.selectedPlanId);
@@ -124,19 +192,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Guardar automáticamente cuando algo cambia (tras hidratar)
   useEffect(() => {
     if (!hydrated) return;
-    const state: PersistedState = { preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes };
+    const state: PersistedState = {
+      preferences, // derivadas: compat con versiones antiguas de la app
+      pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes,
+      profiles, household, schemaVersion: 2,
+    };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch((e) =>
       console.warn('No se pudo guardar el estado', e),
     );
-  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes]);
+  }, [hydrated, preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes, profiles, household]);
 
+  /** Compat: enruta cada campo al hogar o al miembro de referencia. */
   const updatePreferences = useCallback((patch: Partial<Preferences>) => {
-    setPreferences((prev) => ({ ...prev, ...patch }));
+    const householdKeys = ['defaultGoal', 'mealsPerDay', 'aiApiKey', 'useAI', 'onboarded'] as const;
+    const hPatch: Partial<HouseholdSettings> = {};
+    for (const k of householdKeys) {
+      if (patch[k] !== undefined) (hPatch as Record<string, unknown>)[k] = patch[k];
+    }
+    if (Object.keys(hPatch).length > 0) setHousehold((prev) => ({ ...prev, ...hPatch }));
+
+    const profileKeys = ['restrictions', 'dislikes', 'likes', 'calorieTarget', 'macroSplit'] as const;
+    const pPatch: Partial<Profile> = {};
+    for (const k of profileKeys) {
+      if (patch[k] !== undefined) (pPatch as Record<string, unknown>)[k] = patch[k];
+    }
+    if (Object.keys(pPatch).length > 0) {
+      setProfiles((prev) => {
+        const refIdx = Math.max(0, prev.findIndex((p) => p.isReference));
+        return prev.map((p, i) => (i === refIdx ? { ...p, ...pPatch } : p));
+      });
+    }
   }, []);
 
-  const completeOnboarding = useCallback((prefs: Partial<Preferences>) => {
-    setPreferences((prev) => ({ ...prev, ...prefs, onboarded: true }));
+  // --- gestión de miembros de la familia ---
+  const addProfile = useCallback((patch: Partial<Profile> = {}) => {
+    setProfiles((prev) => [...prev, makeProfile(patch)]);
   }, []);
+  const updateProfile = useCallback((id: string, patch: Partial<Profile>) => {
+    setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }, []);
+  const removeProfile = useCallback((id: string) => {
+    setProfiles((prev) => {
+      if (prev.length <= 1) return prev; // siempre queda alguien
+      const next = prev.filter((p) => p.id !== id);
+      if (!next.some((p) => p.isReference)) next[0] = { ...next[0], isReference: true };
+      return next;
+    });
+  }, []);
+  const setReferenceProfile = useCallback((id: string) => {
+    setProfiles((prev) => prev.map((p) => ({ ...p, isReference: p.id === id })));
+  }, []);
+  const updateHousehold = useCallback((patch: Partial<HouseholdSettings>) => {
+    setHousehold((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const completeOnboarding = useCallback(
+    (prefs: Partial<Preferences>) => {
+      updatePreferences({ ...prefs, onboarded: true });
+    },
+    [updatePreferences],
+  );
 
   const addProducts = useCallback((products: Product[]) => {
     if (products.length === 0) return;
@@ -341,6 +456,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shopping,
       aiRecipes,
       generatedRecipes,
+      profiles,
+      household,
+      addProfile,
+      updateProfile,
+      removeProfile,
+      setReferenceProfile,
+      updateHousehold,
       hydrated,
       updatePreferences,
       completeOnboarding,
@@ -361,7 +483,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       preferences, pantry, plans, selectedPlanId, shopping, aiRecipes, generatedRecipes,
-      hydrated, updatePreferences, completeOnboarding, addProducts, removeProduct, clearPantry,
+      profiles, household, addProfile, updateProfile, removeProfile, setReferenceProfile,
+      updateHousehold, hydrated, updatePreferences, completeOnboarding, addProducts, removeProduct, clearPantry,
       regeneratePlans, recommendWeek, selectPlan, selectedPlan, getRecipe, generating, generateAIPlan,
       buildShoppingFromSelected, toggleShoppingItem, addBoughtToPantry, clearShopping,
     ],
